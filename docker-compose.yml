@@ -2,7 +2,7 @@ services:
   web:
     build: .
     ports:
-      - "5004:5000"
+      - "5004:80"
     restart: unless-stopped
     environment:
       TRINO_URL: http://trino1:8080
@@ -13,6 +13,5 @@ services:
       TRINO_AUTHLOG_TABLE: authlog_events
       TRINO_TIMESTAMP_COLUMN: ts
       TRINO_TIMESTAMP_EXPRESSION:
-      FLASK_SECRET_KEY: change-me-for-production
     extra_hosts:
       - "trino1:192.168.11.18"

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Flask Trino Iceberg Log Search</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>PHP Trino Iceberg Log Search</title>
+    <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
     <main class="shell">
@@ -12,58 +12,39 @@
         <div>
           <p class="eyebrow">Trino Iceberg Log Search</p>
           <h1>ログのキーワード検索</h1>
-          <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新50件のみ表示します。</p>
+          <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新<?= h((string) $defaultLimit) ?>件のみ表示します。</p>
         </div>
       </section>
 
       <form id="search-form" class="search" method="post" action="/">
         <label>
           <span>TIME From (JST)</span>
-          <input type="time" name="time_from" value="{{ filters.time_from }}">
+          <input type="time" name="time_from" value="<?= h($filters['time_from']) ?>">
         </label>
         <label>
           <span>TIME To (JST)</span>
-          <input type="time" name="time_to" value="{{ filters.time_to }}">
+          <input type="time" name="time_to" value="<?= h($filters['time_to']) ?>">
         </label>
         <label>
           <span>LOG</span>
           <select name="log_type">
             <option value="">すべて</option>
-            {% for log_type in options.log_types %}
-              <option value="{{ log_type }}" {% if filters.log_type == log_type %}selected{% endif %}>{{ log_type }}</option>
-            {% endfor %}
+            <?php foreach ($options['log_types'] as $logType): ?>
+              <option value="<?= h($logType) ?>" <?= $filters['log_type'] === $logType ? 'selected' : '' ?>><?= h($logType) ?></option>
+            <?php endforeach; ?>
           </select>
         </label>
         <label>
           <span>HOST</span>
-          <input
-            type="search"
-            name="host"
-            value="{{ filters.host }}"
-            placeholder="例: elastic1, flink1"
-            aria-label="Host"
-          >
+          <input type="search" name="host" value="<?= h($filters['host']) ?>" placeholder="例: elastic1, flink1" aria-label="Host">
         </label>
         <label>
           <span>PROGRAM</span>
-          <input
-            type="search"
-            name="program"
-            value="{{ filters.program }}"
-            placeholder="例: sshd, systemd, hdfs"
-            aria-label="Program"
-          >
+          <input type="search" name="program" value="<?= h($filters['program']) ?>" placeholder="例: sshd, systemd, hdfs" aria-label="Program">
         </label>
         <label class="message-filter">
           <span>Message</span>
-          <input
-            type="search"
-            name="message"
-            value="{{ filters.message }}"
-            placeholder="例: accepted, JournalNodeSyncer"
-            aria-label="Message"
-            autofocus
-          >
+          <input type="search" name="message" value="<?= h($filters['message']) ?>" placeholder="例: accepted, JournalNodeSyncer" aria-label="Message" autofocus>
         </label>
         <div class="search-actions">
           <a class="reset-link" href="/clear">クリア</a>
@@ -73,17 +54,17 @@
 
       <section id="results" class="results" aria-live="polite">
         <div id="results-summary" class="summary">
-          {% if searched %}
-            <span>{{ logs|length }} 件</span>
-            <span>最新50件のみ表示</span>
-          {% else %}
+          <?php if ($searched): ?>
+            <span><?= h((string) count($logs)) ?> 件</span>
+            <span>最新<?= h((string) $defaultLimit) ?>件のみ表示</span>
+          <?php else: ?>
             <span>検索を実施してください</span>
-          {% endif %}
+          <?php endif; ?>
         </div>
 
-        {% if not searched %}
+        <?php if (!$searched): ?>
           <p id="results-body" class="empty">検索条件を入力して検索ボタンを押してください。</p>
-        {% elif logs %}
+        <?php elseif ($logs): ?>
           <div id="results-body" class="table-wrap">
             <table>
               <thead>
@@ -96,23 +77,24 @@
                 </tr>
               </thead>
               <tbody>
-                {% for log in logs %}
+                <?php foreach ($logs as $log): ?>
+                  <?php $logType = (string) ($log['log_type'] ?? 'unknown'); ?>
                   <tr>
-                    <td>{{ log.display_time }}</td>
-                    <td><span class="log-type log-type-{{ log.log_type }}">{{ log.log_type }}</span></td>
-                    <td>{{ log.host }}</td>
-                    <td>{{ log.program }}</td>
-                    <td>{{ log.msg }}</td>
+                    <td><?= h($log['display_time'] ?? '') ?></td>
+                    <td><span class="log-type log-type-<?= h($logType) ?>"><?= h($logType) ?></span></td>
+                    <td><?= h($log['host'] ?? '') ?></td>
+                    <td><?= h($log['program'] ?? '') ?></td>
+                    <td><?= h($log['msg'] ?? '') ?></td>
                   </tr>
-                {% endfor %}
+                <?php endforeach; ?>
               </tbody>
             </table>
           </div>
-        {% else %}
+        <?php else: ?>
           <p id="results-body" class="empty">該当するログはありません。</p>
-        {% endif %}
+        <?php endif; ?>
       </section>
     </main>
-    <script src="{{ url_for('static', filename='search.js') }}"></script>
+    <script src="/static/search.js"></script>
   </body>
 </html>

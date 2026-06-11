@@ -1,7 +1,7 @@
 .git
-__pycache__
-*.pyc
-.venv
-venv
+vendor
+.phpunit.cache
+coverage
+htmlcov
 .env
 .DS_Store

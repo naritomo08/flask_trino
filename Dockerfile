@@ -1,15 +1,13 @@
-FROM python:3.12-slim
+FROM php:8.3-apache
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libcurl4-openssl-dev \
+    && docker-php-ext-install curl \
+    && a2enmod rewrite \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /var/www/html
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . /var/www/html/
 
-COPY . .
-
-EXPOSE 5000
-
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+EXPOSE 80

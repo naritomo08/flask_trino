@@ -1,21 +1,17 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-.venv/
-venv/
-env/
+# PHP / Composer
+vendor/
+composer.phar
+composer.lock
 
-# Flask / local environment
+# Local environment
 .env
 .env.*
-instance/
 
 # Test / coverage output
-.pytest_cache/
 .coverage
+coverage/
 htmlcov/
+.phpunit.cache/
 
 # Logs / runtime files
 *.log
@@ -31,4 +27,3 @@ htmlcov/
 # Build artifacts
 build/
 dist/
-*.egg-info/

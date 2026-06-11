@@ -1,6 +1,6 @@
-# flask_trino
+# php_trino
 
-Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Flask から検索するアプリです。
+Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを PHP から検索するアプリです。
 
 設定は以下のリポジトリの Trino / Iceberg 利用版に合わせています。
 
@@ -20,8 +20,14 @@ docker compose up --build
 
 ブラウザで http://localhost:5004 を開きます。
 
-Flask アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
+PHP / Apache アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
 画面検索は POST 後に GET へリダイレクトするため、リロードしてもフォーム再送信は発生しません。
+
+Docker を使わずに PHP の組み込みサーバーで動かす場合:
+
+```bash
+php -S 0.0.0.0:5004 router.php
+```
 
 ## 前提テーブル
 
@@ -69,26 +75,29 @@ curl -X POST http://localhost:5004/api/logs \
 curl http://localhost:5004/health
 ```
 
+## ファイル構成
+
+- `index.php`: アプリの入口
+- `src/http.php`: ルーティング、リクエスト処理、レスポンス処理
+- `src/trino.php`: Trino REST API 接続、SQL 生成、ログ検索処理
+- `src/config.php`: 環境変数からの設定読み込み
+- `views/index.html`: 検索画面の HTML
+- `static/`: CSS / JavaScript
+
 ## テスト
 
-pytest でアプリの主要処理を確認できます。
-テストでは外部の Trino に実接続せず、Fake クライアントを使います。
+PHP の構文チェックは以下で実行できます。
 
 実行方法:
 
 ```bash
-docker compose build
-docker compose run --rm web pytest
+php -l index.php
+php -l src/config.php
+php -l src/http.php
+php -l src/trino.php
+php -l router.php
+php -l views/index.html
 ```
-
-確認している内容:
-
-- JST の時刻表示変換
-- JST 当日の時刻範囲を Trino SQL に変換する処理
-- `syslog_events` / `authlog_events` を対象にした SQL 生成
-- `POST /` による画面検索
-- `POST /api/logs` による JSON API 検索
-- 検索結果の表示用フィールド作成
 
 ## 設定
 
@@ -104,7 +113,6 @@ docker compose run --rm web pytest
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_LIMIT`: 最大取得件数
-- `FLASK_SECRET_KEY`: 画面検索条件をセッションに保存するための秘密鍵
 
 例:
 
