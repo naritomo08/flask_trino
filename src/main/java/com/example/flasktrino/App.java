@@ -11,6 +11,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -49,11 +50,22 @@ public class App {
     private final Config config;
     private final QueryClient queryClient;
     private final Clock clock;
+    private final String indexTemplate;
 
     public App(Config config, QueryClient queryClient, Clock clock) {
         this.config = config;
         this.queryClient = queryClient;
         this.clock = clock;
+        this.indexTemplate = loadResource("/index.html");
+    }
+
+    static String loadResource(String path) {
+        try (InputStream is = App.class.getResourceAsStream(path)) {
+            if (is == null) throw new IllegalStateException("resource not found: " + path);
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public static void main(String[] args) throws IOException {
@@ -432,81 +444,49 @@ public class App {
     }
 
     private String renderIndex(Filters filters, List<LogRecord> logs, boolean searched, String error) {
-        StringBuilder html = new StringBuilder();
-        html.append("""
-                <!doctype html>
-                <html lang="ja">
-                  <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    <title>Java Trino Iceberg Log Search</title>
-                    <link rel="stylesheet" href="/static/styles.css">
-                  </head>
-                  <body>
-                    <main class="shell">
-                      <section class="header">
-                        <div>
-                          <p class="eyebrow">Java Trino Iceberg Log Search</p>
-                          <h1>ログのキーワード検索</h1>
-                          <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新50件のみ表示します。</p>
-                        </div>
-                      </section>
-                """);
-        html.append("""
-                      <form id="search-form" class="search" method="post" action="/">
-                        <label><span>TIME From (JST)</span><input type="time" name="time_from" value="%s"></label>
-                        <label><span>TIME To (JST)</span><input type="time" name="time_to" value="%s"></label>
-                        <label><span>LOG</span><select name="log_type"><option value="">すべて</option>
-                """.formatted(escapeHtml(filters.timeFrom), escapeHtml(filters.timeTo)));
+        StringBuilder options = new StringBuilder();
         for (String logType : LOG_TYPES) {
             String selected = Objects.equals(filters.logType, logType) ? " selected" : "";
-            html.append("<option value=\"").append(escapeHtml(logType)).append("\"").append(selected).append(">")
-                    .append(escapeHtml(logType)).append("</option>");
+            options.append("<option value=\"").append(escapeHtml(logType)).append("\"").append(selected)
+                    .append(">").append(escapeHtml(logType)).append("</option>");
         }
-        html.append("""
-                        </select></label>
-                        <label><span>HOST</span><input type="search" name="host" value="%s" placeholder="例: trino1, flink1" aria-label="Host"></label>
-                        <label><span>PROGRAM</span><input type="search" name="program" value="%s" placeholder="例: sshd, systemd, hdfs" aria-label="Program"></label>
-                        <label class="message-filter"><span>Message</span><input type="search" name="message" value="%s" placeholder="例: accepted, JournalNodeSyncer" aria-label="Message" autofocus></label>
-                        <div class="search-actions"><a class="reset-link" href="/clear">クリア</a><button type="submit">検索</button></div>
-                      </form>
-                """.formatted(escapeHtml(filters.host), escapeHtml(filters.program), escapeHtml(filters.message)));
-        html.append("<section id=\"results\" class=\"results\" aria-live=\"polite\"><div id=\"results-summary\" class=\"summary\">");
-        if (searched) {
-            html.append("<span>").append(logs.size()).append(" 件</span><span>最新50件のみ表示</span>");
-        } else {
-            html.append("<span>検索を実施してください</span>");
-        }
-        html.append("</div>");
 
+        String summary = searched
+                ? "<span>" + logs.size() + " 件</span><span>最新50件のみ表示</span>"
+                : "<span>検索を実施してください</span>";
+
+        String body;
         if (!error.isBlank()) {
-            html.append("<p id=\"results-body\" class=\"empty\">").append(escapeHtml(error)).append("</p>");
+            body = "<p id=\"results-body\" class=\"empty\">" + escapeHtml(error) + "</p>";
         } else if (!searched) {
-            html.append("<p id=\"results-body\" class=\"empty\">検索条件を入力して検索ボタンを押してください。</p>");
+            body = "<p id=\"results-body\" class=\"empty\">検索条件を入力して検索ボタンを押してください。</p>";
         } else if (logs.isEmpty()) {
-            html.append("<p id=\"results-body\" class=\"empty\">該当するログはありません。</p>");
+            body = "<p id=\"results-body\" class=\"empty\">該当するログはありません。</p>";
         } else {
-            html.append("""
-                    <div id="results-body" class="table-wrap"><table><thead><tr>
-                    <th>Time</th><th>Log</th><th>Host</th><th>Program</th><th>Message</th>
-                    </tr></thead><tbody>
-                    """);
+            StringBuilder table = new StringBuilder();
+            table.append("<div id=\"results-body\" class=\"table-wrap\"><table><thead><tr>")
+                    .append("<th>Time</th><th>Log</th><th>Host</th><th>Program</th><th>Message</th>")
+                    .append("</tr></thead><tbody>");
             for (LogRecord log : logs) {
-                html.append("<tr><td>").append(escapeHtml(log.displayTime())).append("</td><td><span class=\"log-type log-type-")
-                        .append(escapeHtml(log.logType())).append("\">").append(escapeHtml(log.logType())).append("</span></td><td>")
-                        .append(escapeHtml(log.host())).append("</td><td>").append(escapeHtml(log.program())).append("</td><td>")
-                        .append(escapeHtml(log.msg())).append("</td></tr>");
+                table.append("<tr><td>").append(escapeHtml(log.displayTime()))
+                        .append("</td><td><span class=\"log-type log-type-").append(escapeHtml(log.logType()))
+                        .append("\">").append(escapeHtml(log.logType())).append("</span></td><td>")
+                        .append(escapeHtml(log.host())).append("</td><td>").append(escapeHtml(log.program()))
+                        .append("</td><td>").append(escapeHtml(log.msg())).append("</td></tr>");
             }
-            html.append("</tbody></table></div>");
+            table.append("</tbody></table></div>");
+            body = table.toString();
         }
-        html.append("""
-                      </section>
-                    </main>
-                    <script src="/static/search.js"></script>
-                  </body>
-                </html>
-                """);
-        return html.toString();
+
+        return indexTemplate
+                .replace("{{timeFrom}}", escapeHtml(filters.timeFrom))
+                .replace("{{timeTo}}", escapeHtml(filters.timeTo))
+                .replace("{{logTypeOptions}}", options.toString())
+                .replace("{{host}}", escapeHtml(filters.host))
+                .replace("{{program}}", escapeHtml(filters.program))
+                .replace("{{message}}", escapeHtml(filters.message))
+                .replace("{{resultsSummary}}", summary)
+                .replace("{{resultsBody}}", body);
     }
 
     static String escapeHtml(String value) {
