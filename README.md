@@ -62,7 +62,7 @@ environment:
 
 ## API
 
-ログ検索:
+ログ検索 (POST):
 
 ```bash
 curl -X POST http://localhost:5004/api/logs \
@@ -70,9 +70,17 @@ curl -X POST http://localhost:5004/api/logs \
   -d '{
     "time_from":"09:00",
     "time_to":"10:30",
-    "message":"timeout",
-    "log_type":"syslog"
+    "log_type":"syslog",
+    "host":"trino1",
+    "program":"sshd",
+    "message":"timeout"
   }'
+```
+
+ログ検索 (GET):
+
+```bash
+curl "http://localhost:5004/api/logs?time_from=09:00&time_to=10:30&log_type=syslog&message=timeout"
 ```
 
 ヘルスチェック:
@@ -137,3 +145,12 @@ environment:
 extra_hosts:
   - "trino1:192.168.11.18"
 ```
+
+## 他言語版
+
+本サイトは Java 版です。
+ブランチを切り替えれば PHP / Go / Ruby 版にもなります。
+
+ブランチ名がそのままその言語版になります。
+
+言語比較やパフォーマンス比較にもご利用ください。
