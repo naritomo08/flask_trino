@@ -1,25 +1,20 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-.venv/
-venv/
-env/
+# Go
+bin/
+*.test
+*.out
+coverage.out
 
-# Flask / local environment
+# Local environment
 .env
 .env.*
-instance/
-
-# Test / coverage output
-.pytest_cache/
-.coverage
-htmlcov/
 
 # Logs / runtime files
 *.log
 *.pid
+
+# Temporary files
+tmp/
+temp/
 
 # OS / editor files
 .DS_Store
@@ -27,8 +22,3 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
-
-# Build artifacts
-build/
-dist/
-*.egg-info/

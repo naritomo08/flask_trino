@@ -1,15 +1,19 @@
-FROM python:3.12-slim
+FROM golang:1.22-alpine AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+WORKDIR /src
+
+COPY go.mod ./
+COPY main.go ./
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/trino-log-search .
+
+FROM alpine:3.20
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
+COPY --from=builder /out/trino-log-search /usr/local/bin/trino-log-search
+COPY templates ./templates
+COPY static ./static
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+CMD ["trino-log-search"]

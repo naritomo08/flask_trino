@@ -1,6 +1,6 @@
-# flask_trino
+# go_trino
 
-Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Flask から検索するアプリです。
+Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Go 製の Web アプリから検索するアプリです。
 
 設定は以下のリポジトリの Trino / Iceberg 利用版に合わせています。
 
@@ -20,7 +20,7 @@ docker compose up --build
 
 ブラウザで http://localhost:5004 を開きます。
 
-Flask アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
+Go アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
 画面検索は POST 後に GET へリダイレクトするため、リロードしてもフォーム再送信は発生しません。
 
 ## 前提テーブル
@@ -71,14 +71,19 @@ curl http://localhost:5004/health
 
 ## テスト
 
-pytest でアプリの主要処理を確認できます。
+Go のテストでアプリの主要処理を確認できます。
 テストでは外部の Trino に実接続せず、Fake クライアントを使います。
 
 実行方法:
 
 ```bash
-docker compose build
-docker compose run --rm web pytest
+go test ./...
+```
+
+Go がローカルにない場合:
+
+```bash
+docker run --rm -v "$PWD":/src -w /src golang:1.22-alpine go test ./...
 ```
 
 確認している内容:
@@ -104,7 +109,6 @@ docker compose run --rm web pytest
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_LIMIT`: 最大取得件数
-- `FLASK_SECRET_KEY`: 画面検索条件をセッションに保存するための秘密鍵
 
 例:
 
@@ -117,7 +121,6 @@ environment:
   TRINO_SYSLOG_TABLE: syslog_events
   TRINO_AUTHLOG_TABLE: authlog_events
   TRINO_TIMESTAMP_COLUMN: ts
-  FLASK_SECRET_KEY: change-me
 extra_hosts:
   - "trino1:192.168.11.18"
 ```
