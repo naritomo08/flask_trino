@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5004:5000"
+    restart: unless-stopped
+    environment:
+      ELASTICSEARCH_URL: http://elastic1:9200
+      ELASTICSEARCH_INDEX: logs-*
+    extra_hosts:
+      - "elastic1:192.168.11.20"
