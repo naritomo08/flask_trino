@@ -1,41 +1,38 @@
+from datetime import date
+
 import pytest
 
 import app as log_app
 
 
-class FakeElasticsearch:
+class FakeTrino:
     def __init__(self):
-        self.search_calls = []
+        self.queries = []
 
     def ping(self):
         return True
 
-    def search(self, **kwargs):
-        self.search_calls.append(kwargs)
-        return {
-            "hits": {
-                "hits": [
-                    {
-                        "_id": "1",
-                        "_index": ".ds-logs-syslog-2026.06.02-000001",
-                        "_score": 1.0,
-                        "_source": {
-                            "@timestamp": 1780398715000,
-                            "host": "flink1",
-                            "program": "systemd",
-                            "msg": "Reached target sshd-keygen.target.",
-                            "severity": 6,
-                        },
-                    }
+    def execute(self, sql):
+        self.queries.append(sql)
+        return (
+            [
+                [
+                    "2026-06-02 20:11:55.000",
+                    "flink1",
+                    "systemd",
+                    "Reached target sshd-keygen.target.",
+                    "syslog",
                 ]
-            }
-        }
+            ],
+            ["event_time", "host", "program", "msg", "log_type"],
+        )
 
 
 @pytest.fixture()
 def fake_client(monkeypatch):
-    client = FakeElasticsearch()
+    client = FakeTrino()
     monkeypatch.setattr(log_app, "get_client", lambda: client)
+    monkeypatch.setattr(log_app, "today_jst", lambda: date(2026, 6, 2))
     return client
 
 
@@ -49,21 +46,25 @@ def test_format_timestamp_converts_epoch_millis_to_jst():
     assert log_app.format_timestamp(1780398715000) == "2026/06/02 20:11:55 JST"
 
 
-def test_datetime_local_to_iso_treats_input_as_jst():
-    converted = log_app.datetime_local_to_iso("2026-06-02T20:11")
-    assert converted == "2026-06-02T11:11:00+00:00"
+def test_format_timestamp_keeps_naive_trino_timestamp_as_jst():
+    assert log_app.format_timestamp("2026-06-02 20:11:55.000") == "2026/06/02 20:11:55 JST"
 
 
-def test_detect_log_type_from_index_name():
-    assert log_app.detect_log_type(".ds-logs-syslog-2026.06.02-000001") == "syslog"
-    assert log_app.detect_log_type(".ds-logs-authlog-2026.06.02-000001") == "authlog"
-    assert log_app.detect_log_type("metrics-2026.06.02") == "unknown"
+def test_time_bound_uses_today_jst_for_time_only_input(fake_client):
+    assert log_app.time_bound("20:11", "from") == "2026-06-02 20:11:00"
+    assert log_app.time_bound("", "to") == "2026-06-02 23:59:59"
 
 
-def test_build_query_with_message_program_host_and_time_range():
+def test_escape_helpers_quote_sql_safely():
+    assert log_app.sql_string("can't") == "'can''t'"
+    assert log_app.quoted_identifier('bad"name') == '"bad""name"'
+    assert log_app.escape_like("100%!_") == "100!%!!!_"
+
+
+def test_build_query_with_message_program_host_and_time_range(fake_client):
     filters = {
-        "time_from": "2026-06-02T20:00",
-        "time_to": "2026-06-02T21:00",
+        "time_from": "20:00",
+        "time_to": "21:00",
         "log_type": "syslog",
         "host": "flink1",
         "program": "systemd",
@@ -72,49 +73,29 @@ def test_build_query_with_message_program_host_and_time_range():
 
     query = log_app.build_query(filters)
 
-    assert query["bool"]["must"][0]["bool"]["should"][0] == {"match_phrase": {"msg": {"query": "sshd"}}}
-    assert query["bool"]["must"][0]["bool"]["should"][1] == {"match": {"msg": {"query": "sshd", "operator": "and"}}}
-    assert {
-        "bool": {
-            "should": [
-                {"term": {"program.keyword": {"value": "systemd"}}},
-                {"term": {"program": {"value": "systemd"}}},
-            ],
-            "minimum_should_match": 1,
-        }
-    } in query["bool"]["filter"]
-    assert {
-        "bool": {
-            "should": [
-                {"term": {"host.keyword": {"value": "flink1"}}},
-                {"term": {"host": {"value": "flink1"}}},
-            ],
-            "minimum_should_match": 1,
-        }
-    } in query["bool"]["filter"]
-    assert {
-        "range": {
-            "@timestamp": {
-                "gte": "2026-06-02T11:00:00+00:00",
-                "lte": "2026-06-02T12:00:00+00:00",
-            }
-        }
-    } in query["bool"]["filter"]
+    assert 'FROM "iceberg"."logs"."syslog_events"' in query
+    assert 'FROM "iceberg"."logs"."authlog_events"' not in query
+    assert '"ts" >= TIMESTAMP \'2026-06-02 20:00:00\'' in query
+    assert '"ts" <= TIMESTAMP \'2026-06-02 21:00:00\'' in query
+    assert 'lower(CAST("host" AS varchar)) = lower(\'flink1\')' in query
+    assert 'lower(CAST("program" AS varchar)) = lower(\'systemd\')' in query
+    assert 'lower(CAST("message" AS varchar)) LIKE lower(\'%sshd%\') ESCAPE \'!\'' in query
+    assert "ORDER BY event_time DESC" in query
+    assert "LIMIT 50" in query
 
 
-def test_build_query_supports_space_separated_message_search():
+def test_build_query_searches_both_log_tables_by_default(fake_client):
     filters = log_app.normalize_filters({"message": "authlog forward test from"})
 
     query = log_app.build_query(filters)
-    message_should = query["bool"]["must"][0]["bool"]["should"]
 
-    assert {"match_phrase": {"msg": {"query": "authlog forward test from"}}} in message_should
-    assert {"match": {"msg": {"query": "authlog forward test from", "operator": "and"}}} in message_should
-    assert {"wildcard": {"msg": {"value": "*authlog forward test from*", "case_insensitive": True}}} in message_should
-    assert {"wildcard": {"msg.keyword": {"value": "*authlog forward test from*", "case_insensitive": True}}} in message_should
+    assert 'FROM "iceberg"."logs"."syslog_events"' in query
+    assert 'FROM "iceberg"."logs"."authlog_events"' in query
+    assert "UNION ALL" in query
+    assert "authlog forward test from" in query
 
 
-def test_search_logs_uses_log_specific_index_and_formats_result(fake_client):
+def test_search_logs_executes_sql_and_formats_result(fake_client):
     filters = {
         "time_from": "",
         "time_to": "",
@@ -126,45 +107,12 @@ def test_search_logs_uses_log_specific_index_and_formats_result(fake_client):
 
     logs = log_app.search_logs(fake_client, filters)
 
-    search_call = fake_client.search_calls[0]
-    assert search_call["index"] == "logs-syslog-*"
-    assert search_call["size"] == 50
+    query = fake_client.queries[0]
+    assert 'FROM "iceberg"."logs"."syslog_events"' in query
+    assert 'FROM "iceberg"."logs"."authlog_events"' not in query
     assert logs[0]["display_time"] == "2026/06/02 20:11:55 JST"
     assert logs[0]["log_type"] == "syslog"
-
-
-def test_search_logs_filters_host_and_program_exactly_after_search(fake_client):
-    fake_client.search = lambda **kwargs: {
-        "hits": {
-            "hits": [
-                {
-                    "_id": "1",
-                    "_index": ".ds-logs-syslog-2026.06.02-000001",
-                    "_source": {
-                        "@timestamp": 1780398715000,
-                        "host": "flink1",
-                        "program": "systemd",
-                        "msg": "exact",
-                    },
-                },
-                {
-                    "_id": "2",
-                    "_index": ".ds-logs-syslog-2026.06.02-000001",
-                    "_source": {
-                        "@timestamp": 1780398715000,
-                        "host": "flink10",
-                        "program": "systemd-logind",
-                        "msg": "partial",
-                    },
-                },
-            ]
-        }
-    }
-    filters = log_app.normalize_filters({"host": "flink1", "program": "systemd"})
-
-    logs = log_app.search_logs(fake_client, filters)
-
-    assert [log["id"] for log in logs] == ["1"]
+    assert logs[0]["msg"] == "Reached target sshd-keygen.target."
 
 
 def test_post_index_search_keeps_filters_in_body(flask_client):
@@ -181,6 +129,7 @@ def test_post_index_search_keeps_filters_in_body(flask_client):
     assert 'id="results-summary"' in html
     assert 'id="results-body"' in html
     assert 'src="/static/search.js"' in html
+    assert 'type="time"' in html
     assert 'value="systemd"' in html
     assert 'value="sshd"' in html
     assert "2026/06/02 20:11:55 JST" in html
@@ -217,7 +166,8 @@ def test_empty_post_search_runs_all_logs_once_then_reload_resets(flask_client, f
     html = response.get_data(as_text=True)
     assert "1 件" in html
     assert "2026/06/02 20:11:55 JST" in html
-    assert fake_client.search_calls[-1]["query"] == {"match_all": {}}
+    assert 'FROM "iceberg"."logs"."syslog_events"' in fake_client.queries[-1]
+    assert 'FROM "iceberg"."logs"."authlog_events"' in fake_client.queries[-1]
 
     response = flask_client.get("/")
     html = response.get_data(as_text=True)
@@ -242,4 +192,5 @@ def test_post_api_logs_with_empty_filters_searches_all_logs(flask_client, fake_c
     payload = response.get_json()
     assert payload["count"] == 1
     assert payload["logs"][0]["display_time"] == "2026/06/02 20:11:55 JST"
-    assert fake_client.search_calls[-1]["query"] == {"match_all": {}}
+    assert 'FROM "iceberg"."logs"."syslog_events"' in fake_client.queries[-1]
+    assert 'FROM "iceberg"."logs"."authlog_events"' in fake_client.queries[-1]

@@ -5,7 +5,14 @@ services:
       - "5004:5000"
     restart: unless-stopped
     environment:
-      ELASTICSEARCH_URL: http://elastic1:9200
-      ELASTICSEARCH_INDEX: logs-*
+      TRINO_URL: http://trino1:8080
+      TRINO_USER: log_search
+      TRINO_CATALOG: iceberg
+      TRINO_SCHEMA: logs
+      TRINO_SYSLOG_TABLE: syslog_events
+      TRINO_AUTHLOG_TABLE: authlog_events
+      TRINO_TIMESTAMP_COLUMN: ts
+      TRINO_TIMESTAMP_EXPRESSION:
+      FLASK_SECRET_KEY: change-me-for-production
     extra_hosts:
-      - "elastic1:192.168.11.20"
+      - "trino1:192.168.11.18"

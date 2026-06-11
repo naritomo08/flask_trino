@@ -3,27 +3,27 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Flask Elasticsearch Log Search</title>
+    <title>Flask Trino Iceberg Log Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   </head>
   <body>
     <main class="shell">
       <section class="header">
         <div>
-          <p class="eyebrow">Elasticsearch Log Search</p>
+          <p class="eyebrow">Trino Iceberg Log Search</p>
           <h1>ログのキーワード検索</h1>
-          <p class="note">検索結果は条件に一致したログのうち最新50件のみ表示します。</p>
+          <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新50件のみ表示します。</p>
         </div>
       </section>
 
       <form id="search-form" class="search" method="post" action="/">
         <label>
           <span>TIME From (JST)</span>
-          <input type="datetime-local" name="time_from" value="{{ filters.time_from }}">
+          <input type="time" name="time_from" value="{{ filters.time_from }}">
         </label>
         <label>
           <span>TIME To (JST)</span>
-          <input type="datetime-local" name="time_to" value="{{ filters.time_to }}">
+          <input type="time" name="time_to" value="{{ filters.time_to }}">
         </label>
         <label>
           <span>LOG</span>
