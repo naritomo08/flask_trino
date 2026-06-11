@@ -3,5 +3,9 @@ __pycache__
 *.pyc
 .venv
 venv
+.bundle
+vendor/bundle
+.ruby-lsp
+.yardoc
 .env
 .DS_Store

@@ -1,6 +1,6 @@
-# flask_trino
+# ruby_sinatra_trino
 
-Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Flask から検索するアプリです。
+Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Ruby / Sinatra から検索するアプリです。
 
 設定は以下のリポジトリの Trino / Iceberg 利用版に合わせています。
 
@@ -20,7 +20,7 @@ docker compose up --build
 
 ブラウザで http://localhost:5004 を開きます。
 
-Flask アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
+Sinatra アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
 画面検索は POST 後に GET へリダイレクトするため、リロードしてもフォーム再送信は発生しません。
 
 ## 前提テーブル
@@ -71,14 +71,14 @@ curl http://localhost:5004/health
 
 ## テスト
 
-pytest でアプリの主要処理を確認できます。
+Minitest / Rack::Test でアプリの主要処理を確認できます。
 テストでは外部の Trino に実接続せず、Fake クライアントを使います。
 
 実行方法:
 
 ```bash
 docker compose build
-docker compose run --rm web pytest
+docker compose run --rm -e RACK_ENV=test web bundle exec ruby test_app.rb
 ```
 
 確認している内容:
@@ -104,7 +104,7 @@ docker compose run --rm web pytest
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_LIMIT`: 最大取得件数
-- `FLASK_SECRET_KEY`: 画面検索条件をセッションに保存するための秘密鍵
+- `SESSION_SECRET`: 画面検索条件をセッションに保存するための秘密鍵。64 文字以上を推奨
 
 例:
 
@@ -117,15 +117,15 @@ environment:
   TRINO_SYSLOG_TABLE: syslog_events
   TRINO_AUTHLOG_TABLE: authlog_events
   TRINO_TIMESTAMP_COLUMN: ts
-  FLASK_SECRET_KEY: change-me
+  SESSION_SECRET: change-me-for-production-ruby-sinatra-log-search-session-secret-please
 extra_hosts:
   - "trino1:192.168.11.18"
 ```
 
 ## 他言語版
 
-本サイトはFlask/Python版になりますが、
-ブランチを切り替えればGo/Java/PHP版にもなります。
+本サイトは Ruby / Sinatra 版です。
+ブランチを切り替えれば Go / Java / PHP / Python 版にもなります。
 
 ブランチ名がそのままその言語版になります。
 
