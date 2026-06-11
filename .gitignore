@@ -1,23 +1,19 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-.venv/
-venv/
-env/
+# Ruby / Bundler
+.bundle/
+vendor/bundle/
+*.gem
 
-# Flask / local environment
+# Ruby LSP / documentation
+.ruby-lsp/
+.yardoc/
+
+# Local environment
 .env
 .env.*
-instance/
-
-# Test / coverage output
-.pytest_cache/
-.coverage
-htmlcov/
 
 # Logs / runtime files
+log/
+tmp/
 *.log
 *.pid
 
@@ -27,8 +23,3 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
-
-# Build artifacts
-build/
-dist/
-*.egg-info/
