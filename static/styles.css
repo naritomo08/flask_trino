@@ -89,7 +89,7 @@ h1 {
 }
 
 input[type="search"],
-input[type="datetime-local"],
+input[type="time"],
 select {
   min-width: 0;
   border: 1px solid #ccd4e0;

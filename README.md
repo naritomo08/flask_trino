@@ -1,6 +1,6 @@
 # flask_trino
 
-Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Flask から検索するアプリです。
+Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Go で検索する Web アプリです。
 
 設定は以下のリポジトリの Trino / Iceberg 利用版に合わせています。
 
@@ -20,8 +20,19 @@ docker compose up --build
 
 ブラウザで http://localhost:5004 を開きます。
 
-Flask アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
+Go アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
 画面検索は POST 後に GET へリダイレクトするため、リロードしてもフォーム再送信は発生しません。
+
+## ローカル実行
+
+Go が入っている環境では以下でも起動できます。
+
+```bash
+go test ./...
+go run .
+```
+
+ブラウザで http://localhost:5000 を開きます。
 
 ## 前提テーブル
 
@@ -71,23 +82,27 @@ curl http://localhost:5004/health
 
 ## テスト
 
-pytest でアプリの主要処理を確認できます。
-テストでは外部の Trino に実接続せず、Fake クライアントを使います。
+Go のテストでは外部の Trino に実接続せず、Fake クライアントを使います。
 
 実行方法:
 
 ```bash
-docker compose build
-docker compose run --rm web pytest
+go test ./...
 ```
+
+Docker で確認する場合:
+
+```bash
+docker compose build
+```
+
+Dockerfile のビルドステージで `go test ./...` を実行します。
 
 確認している内容:
 
 - JST の時刻表示変換
 - JST 当日の時刻範囲を Trino SQL に変換する処理
 - `syslog_events` / `authlog_events` を対象にした SQL 生成
-- `POST /` による画面検索
-- `POST /api/logs` による JSON API 検索
 - 検索結果の表示用フィールド作成
 
 ## 設定
@@ -104,7 +119,7 @@ docker compose run --rm web pytest
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_LIMIT`: 最大取得件数
-- `FLASK_SECRET_KEY`: 画面検索条件をセッションに保存するための秘密鍵
+- `PORT`: HTTP ポート
 
 例:
 
@@ -117,7 +132,6 @@ environment:
   TRINO_SYSLOG_TABLE: syslog_events
   TRINO_AUTHLOG_TABLE: authlog_events
   TRINO_TIMESTAMP_COLUMN: ts
-  FLASK_SECRET_KEY: change-me
 extra_hosts:
   - "trino1:192.168.11.18"
 ```

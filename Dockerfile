@@ -1,15 +1,22 @@
-FROM python:3.12-slim
+FROM golang:1.22 AS build
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+WORKDIR /src
+COPY go.mod ./
+COPY *.go ./
+RUN go test ./...
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/flask-trino .
+
+FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
+COPY --from=build /out/flask-trino /app/flask-trino
+COPY templates /app/templates
+COPY static /app/static
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
+ENV PORT=5000
+ENV TEMPLATE_DIR=/app/templates
+ENV STATIC_DIR=/app/static
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+ENTRYPOINT ["/app/flask-trino"]

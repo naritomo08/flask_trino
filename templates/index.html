@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Flask Trino Iceberg Log Search</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Go Trino Iceberg Log Search</title>
+    <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
     <main class="shell">
       <section class="header">
         <div>
-          <p class="eyebrow">Trino Iceberg Log Search</p>
+          <p class="eyebrow">Go Trino Iceberg Log Search</p>
           <h1>ログのキーワード検索</h1>
           <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新50件のみ表示します。</p>
         </div>
@@ -19,19 +19,19 @@
       <form id="search-form" class="search" method="post" action="/">
         <label>
           <span>TIME From (JST)</span>
-          <input type="time" name="time_from" value="{{ filters.time_from }}">
+          <input type="time" name="time_from" value="{{ .Filters.TimeFrom }}">
         </label>
         <label>
           <span>TIME To (JST)</span>
-          <input type="time" name="time_to" value="{{ filters.time_to }}">
+          <input type="time" name="time_to" value="{{ .Filters.TimeTo }}">
         </label>
         <label>
           <span>LOG</span>
           <select name="log_type">
             <option value="">すべて</option>
-            {% for log_type in options.log_types %}
-              <option value="{{ log_type }}" {% if filters.log_type == log_type %}selected{% endif %}>{{ log_type }}</option>
-            {% endfor %}
+            {{ range .LogTypes }}
+              <option value="{{ . }}" {{ if eq $.Filters.LogType . }}selected{{ end }}>{{ . }}</option>
+            {{ end }}
           </select>
         </label>
         <label>
@@ -39,8 +39,8 @@
           <input
             type="search"
             name="host"
-            value="{{ filters.host }}"
-            placeholder="例: elastic1, flink1"
+            value="{{ .Filters.Host }}"
+            placeholder="例: trino1, flink1"
             aria-label="Host"
           >
         </label>
@@ -49,7 +49,7 @@
           <input
             type="search"
             name="program"
-            value="{{ filters.program }}"
+            value="{{ .Filters.Program }}"
             placeholder="例: sshd, systemd, hdfs"
             aria-label="Program"
           >
@@ -59,7 +59,7 @@
           <input
             type="search"
             name="message"
-            value="{{ filters.message }}"
+            value="{{ .Filters.Message }}"
             placeholder="例: accepted, JournalNodeSyncer"
             aria-label="Message"
             autofocus
@@ -73,17 +73,19 @@
 
       <section id="results" class="results" aria-live="polite">
         <div id="results-summary" class="summary">
-          {% if searched %}
-            <span>{{ logs|length }} 件</span>
+          {{ if .Searched }}
+            <span>{{ len .Logs }} 件</span>
             <span>最新50件のみ表示</span>
-          {% else %}
+          {{ else }}
             <span>検索を実施してください</span>
-          {% endif %}
+          {{ end }}
         </div>
 
-        {% if not searched %}
+        {{ if .Error }}
+          <p id="results-body" class="empty">{{ .Error }}</p>
+        {{ else if not .Searched }}
           <p id="results-body" class="empty">検索条件を入力して検索ボタンを押してください。</p>
-        {% elif logs %}
+        {{ else if .Logs }}
           <div id="results-body" class="table-wrap">
             <table>
               <thead>
@@ -96,23 +98,23 @@
                 </tr>
               </thead>
               <tbody>
-                {% for log in logs %}
+                {{ range .Logs }}
                   <tr>
-                    <td>{{ log.display_time }}</td>
-                    <td><span class="log-type log-type-{{ log.log_type }}">{{ log.log_type }}</span></td>
-                    <td>{{ log.host }}</td>
-                    <td>{{ log.program }}</td>
-                    <td>{{ log.msg }}</td>
+                    <td>{{ .DisplayTime }}</td>
+                    <td><span class="log-type log-type-{{ .LogType }}">{{ .LogType }}</span></td>
+                    <td>{{ .Host }}</td>
+                    <td>{{ .Program }}</td>
+                    <td>{{ .Msg }}</td>
                   </tr>
-                {% endfor %}
+                {{ end }}
               </tbody>
             </table>
           </div>
-        {% else %}
+        {{ else }}
           <p id="results-body" class="empty">該当するログはありません。</p>
-        {% endif %}
+        {{ end }}
       </section>
     </main>
-    <script src="{{ url_for('static', filename='search.js') }}"></script>
+    <script src="/static/search.js"></script>
   </body>
 </html>
