@@ -1,22 +1,19 @@
-FROM golang:1.22 AS build
+FROM maven:3.9-eclipse-temurin-21 AS build
 
 WORKDIR /src
-COPY go.mod ./
-COPY *.go ./
-RUN go test ./...
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/flask-trino .
+COPY pom.xml ./
+COPY src ./src
+RUN mvn -q test package
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
-COPY --from=build /out/flask-trino /app/flask-trino
-COPY templates /app/templates
+COPY --from=build /src/target/flask-trino-1.0.0.jar /app/flask-trino.jar
 COPY static /app/static
 
 ENV PORT=5000
-ENV TEMPLATE_DIR=/app/templates
 ENV STATIC_DIR=/app/static
 
 EXPOSE 5000
 
-ENTRYPOINT ["/app/flask-trino"]
+ENTRYPOINT ["java", "-jar", "/app/flask-trino.jar"]

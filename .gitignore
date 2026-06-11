@@ -1,25 +1,20 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-.venv/
-venv/
-env/
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+dependency-reduced-pom.xml
 
-# Flask / local environment
+# Local environment
 .env
 .env.*
-instance/
-
-# Test / coverage output
-.pytest_cache/
-.coverage
-htmlcov/
 
 # Logs / runtime files
 *.log
 *.pid
+hs_err_pid*
+replay_pid*
 
 # OS / editor files
 .DS_Store
@@ -28,7 +23,7 @@ htmlcov/
 *.swp
 *.swo
 
-# Build artifacts
-build/
-dist/
-*.egg-info/
+# Temporary files
+tmp/
+temp/
+*.tmp

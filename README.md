@@ -1,6 +1,6 @@
 # flask_trino
 
-Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Go で検索する Web アプリです。
+Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Java で検索する Web アプリです。
 
 設定は以下のリポジトリの Trino / Iceberg 利用版に合わせています。
 
@@ -20,16 +20,17 @@ docker compose up --build
 
 ブラウザで http://localhost:5004 を開きます。
 
-Go アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
+Java アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
 画面検索は POST 後に GET へリダイレクトするため、リロードしてもフォーム再送信は発生しません。
 
 ## ローカル実行
 
-Go が入っている環境では以下でも起動できます。
+Java 21 と Maven が入っている環境では以下でも起動できます。
 
 ```bash
-go test ./...
-go run .
+mvn test
+mvn package
+java -jar target/flask-trino-1.0.0.jar
 ```
 
 ブラウザで http://localhost:5000 を開きます。
@@ -82,12 +83,13 @@ curl http://localhost:5004/health
 
 ## テスト
 
-Go のテストでは外部の Trino に実接続せず、Fake クライアントを使います。
+JUnit で主要処理を確認できます。
+テストでは外部の Trino に実接続せず、Fake クライアントを使います。
 
 実行方法:
 
 ```bash
-go test ./...
+mvn test
 ```
 
 Docker で確認する場合:
@@ -96,7 +98,7 @@ Docker で確認する場合:
 docker compose build
 ```
 
-Dockerfile のビルドステージで `go test ./...` を実行します。
+Dockerfile のビルドステージで `mvn test package` を実行します。
 
 確認している内容:
 
