@@ -126,7 +126,15 @@ environment:
   TRINO_SYSLOG_TABLE: syslog_events
   TRINO_AUTHLOG_TABLE: authlog_events
   TRINO_TIMESTAMP_COLUMN: ts
-  FLASK_SECRET_KEY: change-me
 extra_hosts:
   - "trino1:192.168.11.18"
 ```
+
+## 他言語版
+
+本サイトは PHP / Slim Framework 版です。
+ブランチを切り替えれば Go / Java / Ruby 版にもなります。
+
+ブランチ名がそのままその言語版になります。
+
+言語比較やパフォーマンス比較にもご利用ください。
