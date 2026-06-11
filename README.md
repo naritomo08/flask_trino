@@ -77,12 +77,13 @@ curl http://localhost:5004/health
 
 ## ファイル構成
 
-- `index.php`: アプリの入口
-- `src/http.php`: ルーティング、リクエスト処理、レスポンス処理
+- `composer.json`: Slim Framework の依存関係
+- `public/index.php`: アプリの入口。Apache の公開ディレクトリは `public/`
+- `public/static/`: CSS / JavaScript
+- `src/http.php`: Slim のルーティング、リクエスト処理、レスポンス処理
 - `src/trino.php`: Trino REST API 接続、SQL 生成、ログ検索処理
 - `src/config.php`: 環境変数からの設定読み込み
 - `views/index.html`: 検索画面の HTML
-- `static/`: CSS / JavaScript
 
 ## テスト
 
@@ -91,7 +92,7 @@ PHP の構文チェックは以下で実行できます。
 実行方法:
 
 ```bash
-php -l index.php
+php -l public/index.php
 php -l src/config.php
 php -l src/http.php
 php -l src/trino.php

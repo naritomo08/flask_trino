@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/trino.php';
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Factory\AppFactory;
+use Slim\Psr7\Response as SlimResponse;
 
 function h(mixed $value): string
 {
@@ -21,93 +24,113 @@ function normalize_filters(array $args): array
     ];
 }
 
-function filters_from_request(): array
+function filters_from_request(Request $request): array
 {
-    $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+    $contentType = $request->getHeaderLine('Content-Type');
     if (str_contains($contentType, 'application/json')) {
-        $payload = json_decode(file_get_contents('php://input') ?: '{}', true);
+        $payload = $request->getParsedBody();
+        if ($payload === null) {
+            $payload = json_decode((string) $request->getBody(), true);
+        }
         return normalize_filters(is_array($payload) ? $payload : []);
     }
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        return normalize_filters($_POST);
+    if ($request->getMethod() === 'POST') {
+        $payload = $request->getParsedBody();
+        return normalize_filters(is_array($payload) ? $payload : []);
     }
 
-    return normalize_filters($_GET);
+    return normalize_filters($request->getQueryParams());
 }
 
-function json_response(array $payload, int $status = 200): never
+function json_response(Response $response, array $payload, int $status = 200): Response
 {
-    http_response_code($status);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
+    $response->getBody()->write(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    return $response
+        ->withHeader('Content-Type', 'application/json; charset=utf-8')
+        ->withStatus($status);
 }
 
-function render_view(string $template, array $data): never
+function html_response(Response $response, string $html, int $status = 200): Response
+{
+    $response->getBody()->write($html);
+    return $response
+        ->withHeader('Content-Type', 'text/html; charset=utf-8')
+        ->withStatus($status);
+}
+
+function redirect_response(string $location, int $status = 302): Response
+{
+    return (new SlimResponse($status))->withHeader('Location', $location);
+}
+
+function render_view(string $template, array $data): string
 {
     extract($data, EXTR_SKIP);
+    ob_start();
     require __DIR__ . '/../views/' . $template . '.html';
-    exit;
+    return (string) ob_get_clean();
 }
 
-function handle_request(): never
+function create_app(): \Slim\App
 {
     session_start();
 
+    $app = AppFactory::create();
+    $app->addBodyParsingMiddleware();
+    $app->addRoutingMiddleware();
+
     $config = app_config();
-    $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
-    if ($path === '/clear') {
+    $app->get('/', function (Request $request, Response $response) use ($config): Response {
+        if ($request->getQueryParams()) {
+            $filters = filters_from_request($request);
+            $searched = true;
+        } else {
+            $searched = (bool) ($_SESSION['searched'] ?? false);
+            $filters = $searched ? normalize_filters($_SESSION['filters'] ?? []) : normalize_filters([]);
+            unset($_SESSION['filters'], $_SESSION['searched']);
+        }
+
+        $logs = $searched ? search_logs($filters, $config) : [];
+        $html = render_view('index', [
+            'filters' => $filters,
+            'logs' => $logs,
+            'options' => ['log_types' => LOG_TYPES],
+            'searched' => $searched,
+            'defaultLimit' => $config['default_limit'],
+        ]);
+
+        return html_response($response, $html);
+    });
+
+    $app->post('/', function (Request $request): Response {
+        $_SESSION['filters'] = filters_from_request($request);
+        $_SESSION['searched'] = true;
+        return redirect_response('/');
+    });
+
+    $app->get('/clear', function (): Response {
         unset($_SESSION['filters'], $_SESSION['searched']);
-        header('Location: /', true, 302);
-        exit;
-    }
+        return redirect_response('/');
+    });
 
-    if ($path === '/health') {
-        json_response([
+    $app->get('/health', function (Request $request, Response $response) use ($config): Response {
+        return json_response($response, [
             'ok' => trino_ping($config),
             'trino_url' => $config['trino_url'],
             'catalog' => $config['trino_catalog'],
             'schema' => $config['trino_schema'],
         ]);
-    }
+    });
 
-    if ($path === '/api/logs') {
-        $filters = filters_from_request();
+    $app->map(['GET', 'POST'], '/api/logs', function (Request $request, Response $response) use ($config): Response {
+        $filters = filters_from_request($request);
         $logs = search_logs($filters, $config);
-        json_response(['filters' => $filters, 'count' => count($logs), 'logs' => $logs]);
-    }
+        return json_response($response, ['filters' => $filters, 'count' => count($logs), 'logs' => $logs]);
+    });
 
-    if ($path !== '/') {
-        http_response_code(404);
-        echo 'Not Found';
-        exit;
-    }
+    $app->addErrorMiddleware(true, true, true);
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $_SESSION['filters'] = filters_from_request();
-        $_SESSION['searched'] = true;
-        header('Location: /', true, 302);
-        exit;
-    }
-
-    if ($_GET) {
-        $filters = filters_from_request();
-        $searched = true;
-    } else {
-        $searched = (bool) ($_SESSION['searched'] ?? false);
-        $filters = $searched ? normalize_filters($_SESSION['filters'] ?? []) : normalize_filters([]);
-        unset($_SESSION['filters'], $_SESSION['searched']);
-    }
-
-    $logs = $searched ? search_logs($filters, $config) : [];
-
-    render_view('index', [
-        'filters' => $filters,
-        'logs' => $logs,
-        'options' => ['log_types' => LOG_TYPES],
-        'searched' => $searched,
-        'defaultLimit' => $config['default_limit'],
-    ]);
+    return $app;
 }
