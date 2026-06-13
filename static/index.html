@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ruby Sinatra Trino Iceberg Log Search</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="header">
+        <div>
+          <p class="eyebrow">Ruby Sinatra Trino Iceberg Log Search</p>
+          <h1>当日ログ検索</h1>
+          <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新50件のみ表示します。</p>
+        </div>
+      </section>
+
+      <form id="search-form" class="search" method="post" action="/api/logs">
+        <label>
+          <span>TIME From (JST)</span>
+          <input type="time" name="time_from">
+        </label>
+        <label>
+          <span>TIME To (JST)</span>
+          <input type="time" name="time_to">
+        </label>
+        <label>
+          <span>LOG</span>
+          <select name="log_type">
+            <option value="">すべて</option>
+            <option value="syslog">syslog</option>
+            <option value="authlog">authlog</option>
+          </select>
+        </label>
+        <label>
+          <span>HOST</span>
+          <input
+            type="search"
+            name="host"
+            placeholder="例: elastic1, flink1"
+            aria-label="Host"
+          >
+        </label>
+        <label>
+          <span>PROGRAM</span>
+          <input
+            type="search"
+            name="program"
+            placeholder="例: sshd, systemd, hdfs"
+            aria-label="Program"
+          >
+        </label>
+        <label class="message-filter">
+          <span>Message</span>
+          <input
+            type="search"
+            name="message"
+            placeholder="例: accepted, JournalNodeSyncer"
+            aria-label="Message"
+            autofocus
+          >
+        </label>
+        <div class="search-actions">
+          <button class="reset-link" type="reset">クリア</button>
+          <button type="submit">検索</button>
+        </div>
+      </form>
+
+      <section id="results" class="results" aria-live="polite">
+        <div id="results-summary" class="summary">
+          <span>検索を実施してください</span>
+        </div>
+        <p id="results-body" class="empty">検索条件を入力して検索ボタンを押してください。</p>
+      </section>
+    </main>
+    <script src="/search.js"></script>
+  </body>
+</html>

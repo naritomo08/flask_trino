@@ -13,6 +13,5 @@ services:
       TRINO_AUTHLOG_TABLE: authlog_events
       TRINO_TIMESTAMP_COLUMN: ts
       TRINO_TIMESTAMP_EXPRESSION:
-      SESSION_SECRET: change-me-for-production-ruby-sinatra-log-search-session-secret-please
     extra_hosts:
       - "trino1:192.168.11.18"

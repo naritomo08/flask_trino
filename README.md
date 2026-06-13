@@ -21,7 +21,7 @@ docker compose up --build
 ブラウザで http://localhost:5004 を開きます。
 
 Sinatra アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
-画面検索は POST 後に GET へリダイレクトするため、リロードしてもフォーム再送信は発生しません。
+画面は `static/index.html` を配信し、検索はブラウザの JavaScript から `/api/logs` を呼び出します。
 
 ## 前提テーブル
 
@@ -104,7 +104,6 @@ docker compose run --rm -e RACK_ENV=test web bundle exec ruby test_app.rb
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_LIMIT`: 最大取得件数
-- `SESSION_SECRET`: 画面検索条件をセッションに保存するための秘密鍵。64 文字以上を推奨
 
 例:
 
@@ -117,7 +116,6 @@ environment:
   TRINO_SYSLOG_TABLE: syslog_events
   TRINO_AUTHLOG_TABLE: authlog_events
   TRINO_TIMESTAMP_COLUMN: ts
-  SESSION_SECRET: change-me-for-production-ruby-sinatra-log-search-session-secret-please
 extra_hosts:
   - "trino1:192.168.11.18"
 ```

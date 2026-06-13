@@ -99,16 +99,22 @@ select {
   color: #172033;
 }
 
-a.reset-link {
+a.reset-link,
+button.reset-link {
   display: inline-flex;
   align-items: center;
   min-height: 43px;
+  border: 0;
+  padding: 0;
+  background: transparent;
   color: #176b87;
   font-weight: 800;
   text-decoration: none;
 }
 
-a.reset-link:hover {
+a.reset-link:hover,
+button.reset-link:hover {
+  background: transparent;
   text-decoration: underline;
 }
 
@@ -203,6 +209,11 @@ th {
 }
 
 .searching {
+  font-weight: 800;
+}
+
+.error {
+  color: #9f1d1d;
   font-weight: 800;
 }
 

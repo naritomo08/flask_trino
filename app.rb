@@ -96,41 +96,14 @@ class LogSearchApp < Sinatra::Base
   JST_OFFSET = "+09:00"
 
   configure do
-    enable :sessions
-    set :session_secret, ENV["SESSION_SECRET"] || "dev-secret-key-for-ruby-sinatra-log-search-local-development-only"
     set :public_folder, File.expand_path("static", __dir__)
-    set :views, File.expand_path("templates", __dir__)
-    set :erb, escape_html: true
-  end
-
-  helpers do
-    def h(value)
-      Rack::Utils.escape_html(value)
-    end
   end
 
   get "/" do
-    if request.GET.any?
-      filters = filters_from_hash(params)
-      searched = true
-    else
-      searched = session.delete("searched") || false
-      filters = searched ? normalize_filters(session.delete("filters") || {}) : normalize_filters({})
-    end
-
-    logs = searched ? search_logs(client, filters) : []
-    erb :index, locals: { filters: filters, logs: logs, log_types: LOG_TYPES, searched: searched }
+    send_file File.join(settings.public_folder, "index.html")
   end
 
   post "/" do
-    session["filters"] = filters_from_hash(params)
-    session["searched"] = true
-    redirect "/"
-  end
-
-  get "/clear" do
-    session.delete("filters")
-    session.delete("searched")
     redirect "/"
   end
 
@@ -162,6 +135,9 @@ class LogSearchApp < Sinatra::Base
   def api_search_logs(filters)
     logs = search_logs(client, filters)
     json_response(filters: filters, count: logs.length, logs: logs)
+  rescue StandardError => e
+    status 500
+    json_response(error: e.message)
   end
 
   def json_response(payload)

@@ -103,34 +103,29 @@ class LogSearchAppTest < Minitest::Test
     assert_includes query, "authlog forward test from"
   end
 
-  def test_post_index_search_keeps_filters_in_body_once
+  def test_index_serves_static_html_client
+    get "/"
+    body = last_response.body.force_encoding("UTF-8")
+
+    assert_equal 200, last_response.status
+    assert_includes body, %(action="/api/logs")
+    assert_includes body, %(id="search-form")
+    assert_includes body, %(src="/search.js")
+    assert_includes body, %(type="time")
+    assert_includes body, "検索を実施してください"
+    refute_includes body, "2026/06/02 20:11:55 JST"
+  end
+
+  def test_post_index_redirects_to_static_html
     post "/", { program: "systemd", message: "sshd" }
     assert_equal 302, last_response.status
     assert_equal "http://example.org/", last_response.location
 
     follow_redirect!
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, %(method="post")
-    assert_includes last_response.body, %(id="search-form")
-    assert_includes last_response.body, %(src="/search.js")
-    assert_includes last_response.body, %(type="time")
-    assert_includes last_response.body, %(value="systemd")
-    assert_includes last_response.body, %(value="sshd")
-    assert_includes last_response.body, "2026/06/02 20:11:55 JST"
+    body = last_response.body.force_encoding("UTF-8")
 
-    get "/"
-    assert_includes last_response.body, "検索を実施してください"
-    refute_includes last_response.body, "2026/06/02 20:11:55 JST"
-  end
-
-  def test_clear_filters_removes_session_filters
-    post "/", { program: "systemd", message: "sshd" }
-    get "/clear"
-
-    assert_equal 302, last_response.status
-    follow_redirect!
-    assert_includes last_response.body, "検索を実施してください"
-    refute_includes last_response.body, "2026/06/02 20:11:55 JST"
+    assert_includes body, "検索を実施してください"
+    refute_includes body, "2026/06/02 20:11:55 JST"
   end
 
   def test_post_api_logs_accepts_json
