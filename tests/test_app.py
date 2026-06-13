@@ -2,7 +2,8 @@ from datetime import date
 
 import pytest
 
-import app as log_app
+import app as flask_app
+import trino_backend as log_backend
 
 
 class FakeTrino:
@@ -31,34 +32,35 @@ class FakeTrino:
 @pytest.fixture()
 def fake_client(monkeypatch):
     client = FakeTrino()
-    monkeypatch.setattr(log_app, "get_client", lambda: client)
-    monkeypatch.setattr(log_app, "today_jst", lambda: date(2026, 6, 2))
+    backend = log_backend.TrinoLogBackend(client_factory=lambda: client)
+    monkeypatch.setattr(flask_app, "get_backend", lambda: backend)
+    monkeypatch.setattr(log_backend, "today_jst", lambda: date(2026, 6, 2))
     return client
 
 
 @pytest.fixture()
 def flask_client(fake_client):
-    log_app.app.config.update(TESTING=True)
-    return log_app.app.test_client()
+    flask_app.app.config.update(TESTING=True)
+    return flask_app.app.test_client()
 
 
 def test_format_timestamp_converts_epoch_millis_to_jst():
-    assert log_app.format_timestamp(1780398715000) == "2026/06/02 20:11:55 JST"
+    assert log_backend.format_timestamp(1780398715000) == "2026/06/02 20:11:55 JST"
 
 
 def test_format_timestamp_keeps_naive_trino_timestamp_as_jst():
-    assert log_app.format_timestamp("2026-06-02 20:11:55.000") == "2026/06/02 20:11:55 JST"
+    assert log_backend.format_timestamp("2026-06-02 20:11:55.000") == "2026/06/02 20:11:55 JST"
 
 
 def test_time_bound_uses_today_jst_for_time_only_input(fake_client):
-    assert log_app.time_bound("20:11", "from") == "2026-06-02 20:11:00"
-    assert log_app.time_bound("", "to") == "2026-06-02 23:59:59"
+    assert log_backend.time_bound("20:11", "from") == "2026-06-02 20:11:00"
+    assert log_backend.time_bound("", "to") == "2026-06-02 23:59:59"
 
 
 def test_escape_helpers_quote_sql_safely():
-    assert log_app.sql_string("can't") == "'can''t'"
-    assert log_app.quoted_identifier('bad"name') == '"bad""name"'
-    assert log_app.escape_like("100%!_") == "100!%!!!_"
+    assert log_backend.sql_string("can't") == "'can''t'"
+    assert log_backend.quoted_identifier('bad"name') == '"bad""name"'
+    assert log_backend.escape_like("100%!_") == "100!%!!!_"
 
 
 def test_build_query_with_message_program_host_and_time_range(fake_client):
@@ -71,7 +73,7 @@ def test_build_query_with_message_program_host_and_time_range(fake_client):
         "message": "sshd",
     }
 
-    query = log_app.build_query(filters)
+    query = log_backend.build_query(filters)
 
     assert 'FROM "iceberg"."logs"."syslog_events"' in query
     assert 'FROM "iceberg"."logs"."authlog_events"' not in query
@@ -85,9 +87,9 @@ def test_build_query_with_message_program_host_and_time_range(fake_client):
 
 
 def test_build_query_searches_both_log_tables_by_default(fake_client):
-    filters = log_app.normalize_filters({"message": "authlog forward test from"})
+    filters = flask_app.normalize_filters({"message": "authlog forward test from"})
 
-    query = log_app.build_query(filters)
+    query = log_backend.build_query(filters)
 
     assert 'FROM "iceberg"."logs"."syslog_events"' in query
     assert 'FROM "iceberg"."logs"."authlog_events"' in query
@@ -105,7 +107,7 @@ def test_search_logs_executes_sql_and_formats_result(fake_client):
         "message": "sshd",
     }
 
-    logs = log_app.search_logs(fake_client, filters)
+    logs = log_backend.search_logs(fake_client, filters)
 
     query = fake_client.queries[0]
     assert 'FROM "iceberg"."logs"."syslog_events"' in query
