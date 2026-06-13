@@ -444,6 +444,7 @@ public class App {
     }
 
     private String renderIndex(Filters filters, List<LogRecord> logs, boolean searched, String error) {
+        String appTitle = "Java Trino Iceberg Log Search";
         StringBuilder options = new StringBuilder();
         for (String logType : LOG_TYPES) {
             String selected = Objects.equals(filters.logType, logType) ? " selected" : "";
@@ -479,6 +480,7 @@ public class App {
         }
 
         return indexTemplate
+                .replace("{{appTitle}}", escapeHtml(appTitle))
                 .replace("{{timeFrom}}", escapeHtml(filters.timeFrom))
                 .replace("{{timeTo}}", escapeHtml(filters.timeTo))
                 .replace("{{logTypeOptions}}", options.toString())
