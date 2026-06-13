@@ -1,16 +1,17 @@
 <!doctype html>
+{{ $appTitle := "Go Trino Iceberg Log Search" }}
 <html lang="ja">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Go Trino Iceberg Log Search</title>
+    <title>{{ $appTitle }}</title>
     <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
     <main class="shell">
       <section class="header">
         <div>
-          <p class="eyebrow">Go Trino Iceberg Log Search</p>
+          <p class="eyebrow">{{ $appTitle }}</p>
           <h1>当日ログ検索</h1>
           <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新50件のみ表示します。</p>
         </div>
