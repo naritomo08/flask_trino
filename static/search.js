@@ -3,11 +3,20 @@ const resultsSummary = document.getElementById("results-summary");
 let resultsBody = document.getElementById("results-body");
 
 if (searchForm && resultsSummary && resultsBody) {
-  searchForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
+  const submitsToApi = new URL(
+    searchForm.getAttribute("action") || window.location.href,
+    window.location.href
+  ).pathname === "/api/logs";
 
+  searchForm.addEventListener("submit", async (event) => {
     setSummary("検索中");
     replaceResultsBody(emptyMessage("検索中", "empty searching"));
+
+    if (!submitsToApi) {
+      return;
+    }
+
+    event.preventDefault();
 
     try {
       const response = await fetch("/api/logs", {
@@ -32,6 +41,10 @@ if (searchForm && resultsSummary && resultsBody) {
   });
 
   searchForm.addEventListener("reset", () => {
+    if (!submitsToApi) {
+      return;
+    }
+
     window.setTimeout(() => {
       setSummary("検索を実施してください");
       replaceResultsBody(emptyMessage("検索条件を入力して検索ボタンを押してください。"));
