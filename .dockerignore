@@ -1,7 +1,21 @@
 .git
+.env
+.DS_Store
+
+# Python
+__pycache__
+*.pyc
+.venv
+venv
+
+# PHP
 vendor
 .phpunit.cache
 coverage
 htmlcov
-.env
-.DS_Store
+
+# Ruby
+.bundle
+vendor/bundle
+.ruby-lsp
+.yardoc
