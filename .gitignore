@@ -7,7 +7,34 @@ __pycache__/
 venv/
 env/
 
-# Flask / local environment
+# Go
+bin/
+*.test
+*.out
+coverage.out
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+dependency-reduced-pom.xml
+
+# PHP / Composer
+vendor/
+composer.phar
+
+# Ruby / Bundler
+.bundle/
+vendor/bundle/
+*.gem
+
+# Ruby LSP / documentation
+.ruby-lsp/
+.yardoc/
+
+# Local environment
 .env
 .env.*
 instance/
@@ -15,11 +42,26 @@ instance/
 # Test / coverage output
 .pytest_cache/
 .coverage
+coverage/
 htmlcov/
+.phpunit.cache/
 
 # Logs / runtime files
+log/
 *.log
 *.pid
+hs_err_pid*
+replay_pid*
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
 
 # OS / editor files
 .DS_Store
@@ -27,8 +69,3 @@ htmlcov/
 .vscode/
 *.swp
 *.swo
-
-# Build artifacts
-build/
-dist/
-*.egg-info/
