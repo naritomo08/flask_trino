@@ -1,16 +1,20 @@
 <!doctype html>
+<?php
+$pageTitle = 'PHP Trino Iceberg Log Search';
+$eyebrow = 'PHP Slim Trino Iceberg Log Search';
+?>
 <html lang="ja">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PHP Trino Iceberg Log Search</title>
+    <title><?= h($pageTitle) ?></title>
     <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
     <main class="shell">
       <section class="header">
         <div>
-          <p class="eyebrow">PHP Slim Trino Iceberg Log Search</p>
+          <p class="eyebrow"><?= h($eyebrow) ?></p>
           <h1>当日ログ検索</h1>
           <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新<?= h((string) $defaultLimit) ?>件のみ表示します。</p>
         </div>
@@ -36,15 +40,34 @@
         </label>
         <label>
           <span>HOST</span>
-          <input type="search" name="host" value="<?= h($filters['host']) ?>" placeholder="例: elastic1, flink1" aria-label="Host">
+          <input
+            type="search"
+            name="host"
+            value="<?= h($filters['host']) ?>"
+            placeholder="例: elastic1, flink1"
+            aria-label="Host"
+          >
         </label>
         <label>
           <span>PROGRAM</span>
-          <input type="search" name="program" value="<?= h($filters['program']) ?>" placeholder="例: sshd, systemd, hdfs" aria-label="Program">
+          <input
+            type="search"
+            name="program"
+            value="<?= h($filters['program']) ?>"
+            placeholder="例: sshd, systemd, hdfs"
+            aria-label="Program"
+          >
         </label>
         <label class="message-filter">
           <span>Message</span>
-          <input type="search" name="message" value="<?= h($filters['message']) ?>" placeholder="例: accepted, JournalNodeSyncer" aria-label="Message" autofocus>
+          <input
+            type="search"
+            name="message"
+            value="<?= h($filters['message']) ?>"
+            placeholder="例: accepted, JournalNodeSyncer"
+            aria-label="Message"
+            autofocus
+          >
         </label>
         <div class="search-actions">
           <a class="reset-link" href="/clear">クリア</a>
