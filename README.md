@@ -114,9 +114,3 @@ docker compose --profile test run --rm backend-contract-tests
 ```bash
 RUN_SEARCH_CONTRACT_TESTS=1 docker compose --profile test run --rm backend-contract-tests
 ```
-
-Python / Flask バックエンド単体の内部テストを実行する場合:
-
-```bash
-docker compose run --rm backend-python pytest
-```
