@@ -1,18 +1,89 @@
+x-trino-env: &trino-env
+  TRINO_URL: http://trino1:8080
+  TRINO_USER: log_search
+  TRINO_CATALOG: iceberg
+  TRINO_SCHEMA: logs
+  TRINO_SYSLOG_TABLE: syslog_events
+  TRINO_AUTHLOG_TABLE: authlog_events
+  TRINO_TIMESTAMP_COLUMN: ts
+  TRINO_TIMESTAMP_EXPRESSION: ""
+  TRINO_LIMIT: 50
+
+x-trino-hosts: &trino-hosts
+  - "trino1:192.168.11.18"
+
 services:
-  web:
-    build: .
+  frontend:
+    build: ./frontend
     ports:
-      - "5004:5000"
+      - "8081:80"
+    depends_on:
+      - backend-python
+      - backend-go
+      - backend-java
+      - backend-php
+      - backend-ruby
+    restart: unless-stopped
+
+  backend-python:
+    build: ./backend-python
+    ports:
+      - "5011:5000"
     restart: unless-stopped
     environment:
-      TRINO_URL: http://trino1:8080
-      TRINO_USER: log_search
-      TRINO_CATALOG: iceberg
-      TRINO_SCHEMA: logs
-      TRINO_SYSLOG_TABLE: syslog_events
-      TRINO_AUTHLOG_TABLE: authlog_events
-      TRINO_TIMESTAMP_COLUMN: ts
-      TRINO_TIMESTAMP_EXPRESSION:
+      <<: *trino-env
       FLASK_SECRET_KEY: change-me-for-production
-    extra_hosts:
-      - "trino1:192.168.11.18"
+    extra_hosts: *trino-hosts
+
+  backend-go:
+    build: ./backend-go
+    ports:
+      - "5012:5000"
+    restart: unless-stopped
+    environment:
+      <<: *trino-env
+    extra_hosts: *trino-hosts
+
+  backend-java:
+    build: ./backend-java
+    ports:
+      - "5013:5000"
+    restart: unless-stopped
+    environment:
+      <<: *trino-env
+    extra_hosts: *trino-hosts
+
+  backend-php:
+    build: ./backend-php
+    ports:
+      - "5014:5000"
+    restart: unless-stopped
+    environment:
+      <<: *trino-env
+    extra_hosts: *trino-hosts
+
+  backend-ruby:
+    build: ./backend-ruby
+    ports:
+      - "5015:5000"
+    restart: unless-stopped
+    environment:
+      <<: *trino-env
+    extra_hosts: *trino-hosts
+
+  backend-contract-tests:
+    build: ./backend-python
+    profiles:
+      - test
+    depends_on:
+      - backend-python
+      - backend-go
+      - backend-java
+      - backend-php
+      - backend-ruby
+    volumes:
+      - ./tests:/app/tests:ro
+    environment:
+      BACKEND_TARGETS: flask=http://backend-python:5000,go=http://backend-go:5000,java=http://backend-java:5000,php=http://backend-php:5000,ruby=http://backend-ruby:5000
+      RUN_SEARCH_CONTRACT_TESTS: ${RUN_SEARCH_CONTRACT_TESTS:-0}
+    command: ["pytest", "/app/tests"]

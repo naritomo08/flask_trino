@@ -35,6 +35,14 @@ def filters_from_request():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    if request.method == "GET" and request.accept_mimetypes.best == "application/json":
+        return jsonify(
+            {
+                "service": "flask-trino-backend",
+                "endpoints": ["/health", "/api/options", "/api/logs"],
+            }
+        )
+
     if request.method == "POST":
         session["filters"] = filters_from_request()
         session["searched"] = True
@@ -75,6 +83,11 @@ def health():
             **current_backend.health_info(),
         }
     )
+
+
+@app.get("/api/options")
+def api_options():
+    return jsonify(get_backend().get_filter_options())
 
 
 @app.route("/api/logs", methods=["GET", "POST"])

@@ -1,16 +1,8 @@
 # flask_trino
 
-Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを Flask から検索するアプリです。
+Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テーブルを検索するログ検索サイトです。
 
-設定は以下のリポジトリの Trino / Iceberg 利用版に合わせています。
-
-https://github.com/naritomo08/elixir_trino
-
-Trino は以下の記事の構成で作成済みのものを利用する想定です。
-
-https://qiita.com/naritomo08/items/f228fe97d152c16a95d8
-
-検索対象日は JST の当日固定です。画面では開始時刻と終了時刻だけを指定し、条件に一致したログのうち最新 50 件を表示します。
+`frontback` 構成では、Nginx の静的フロントエンドから各言語の Trino バックエンドへ API プロキシします。参照元の `flask_elastic/tree/frontback` と同じ操作感で、検索対象を Trino / Iceberg に置き換えています。
 
 ## 起動
 
@@ -18,10 +10,26 @@ https://qiita.com/naritomo08/items/f228fe97d152c16a95d8
 docker compose up --build
 ```
 
-ブラウザで http://localhost:5004 を開きます。
+ブラウザで http://localhost:8081 を開きます。
 
-Flask アプリだけを Docker で起動します。Trino / Iceberg / 収集基盤はこの Compose には含めません。
-画面検索は POST 後に GET へリダイレクトするため、リロードしてもフォーム再送信は発生しません。
+フロントエンドの外向けポートは `8081` です。バックエンドの外向けポートは `5011` から順に割り当てています。
+
+| Service | URL |
+| --- | --- |
+| frontend | http://localhost:8081 |
+| Python / Flask | http://localhost:5011 |
+| Go | http://localhost:5012 |
+| Java | http://localhost:5013 |
+| PHP | http://localhost:5014 |
+| Ruby | http://localhost:5015 |
+
+フロントエンド画面の Backend セレクトで検索に使うバックエンドを切り替えられます。疎通確認は http://localhost:8081/health です。
+
+## 前提
+
+Trino / Iceberg / ログ収集基盤はこの Compose には含めません。デフォルトでは `trino1:8080` の Trino に接続します。
+
+`docker-compose.yml` の `extra_hosts` で `trino1` を `192.168.11.18` に向けています。環境に合わせて変更してください。
 
 ## 前提テーブル
 
@@ -37,23 +45,14 @@ Flask アプリだけを Docker で起動します。Trino / Iceberg / 収集基
 - `program`: プログラム名
 - `message`: メッセージ
 
-カラム名やテーブル名が違う場合は環境変数で変更してください。
-時刻カラムが文字列などでそのまま比較できない場合は、`TRINO_TIMESTAMP_EXPRESSION` に Trino の SQL 式を設定できます。
-
-例:
-
-```yaml
-environment:
-  TRINO_TIMESTAMP_COLUMN: ts
-  TRINO_TIMESTAMP_EXPRESSION: CAST("ts" AS timestamp)
-```
+検索対象日は JST の当日固定です。画面では開始時刻と終了時刻だけを指定し、条件に一致したログのうち最新 50 件を表示します。
 
 ## API
 
-ログ検索:
+フロントエンド経由の検索:
 
 ```bash
-curl -X POST http://localhost:5004/api/logs \
+curl -X POST http://localhost:8081/api/flask/logs \
   -H "Content-Type: application/json" \
   -d '{
     "time_from":"09:00",
@@ -63,32 +62,20 @@ curl -X POST http://localhost:5004/api/logs \
   }'
 ```
 
+各バックエンドへ直接アクセスする場合:
+
+```bash
+curl -X POST http://localhost:5011/api/logs \
+  -H "Content-Type: application/json" \
+  -d '{"message":"timeout"}'
+```
+
 ヘルスチェック:
 
 ```bash
-curl http://localhost:5004/health
+curl http://localhost:8081/health/flask
+curl http://localhost:5011/health
 ```
-
-## テスト
-
-pytest でアプリの主要処理を確認できます。
-テストでは外部の Trino に実接続せず、Fake クライアントを使います。
-
-実行方法:
-
-```bash
-docker compose build
-docker compose run --rm web pytest
-```
-
-確認している内容:
-
-- JST の時刻表示変換
-- JST 当日の時刻範囲を Trino SQL に変換する処理
-- `syslog_events` / `authlog_events` を対象にした SQL 生成
-- `POST /` による画面検索
-- `POST /api/logs` による JSON API 検索
-- 検索結果の表示用フィールド作成
 
 ## 設定
 
@@ -104,29 +91,33 @@ docker compose run --rm web pytest
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_LIMIT`: 最大取得件数
-- `FLASK_SECRET_KEY`: 画面検索条件をセッションに保存するための秘密鍵
+- `FLASK_SECRET_KEY`: Python / Flask の画面用セッション秘密鍵
 
-例:
+時刻カラムが文字列などでそのまま比較できない場合は、`TRINO_TIMESTAMP_EXPRESSION` に Trino の SQL 式を設定できます。
 
 ```yaml
 environment:
-  TRINO_URL: http://trino1:8080
-  TRINO_USER: log_search
-  TRINO_CATALOG: iceberg
-  TRINO_SCHEMA: logs
-  TRINO_SYSLOG_TABLE: syslog_events
-  TRINO_AUTHLOG_TABLE: authlog_events
   TRINO_TIMESTAMP_COLUMN: ts
-  FLASK_SECRET_KEY: change-me
-extra_hosts:
-  - "trino1:192.168.11.18"
+  TRINO_TIMESTAMP_EXPRESSION: CAST("ts" AS timestamp)
 ```
 
-## 他言語版
+## テスト
 
-本サイトは Python / Flask 版です。
-ブランチを切り替えれば Go / Java / PHP / Ruby 版にもなります。
+参照元の `flask_elastic/tree/frontback` と同じく、Compose の `test` profile で全バックエンドの共通 API 契約を確認します。
 
-ブランチ名がそのままその言語版になります。
+```bash
+docker compose --profile test run --rm backend-contract-tests
+```
 
-言語比較やパフォーマンス比較にもご利用ください。
+このテストでは `/`, `/health`, `/api/options` の共通レスポンスを確認します。
+実際に Trino へ検索する `/api/logs` の契約テストは通常スキップされます。Trino に接続できる環境では以下で有効化できます。
+
+```bash
+RUN_SEARCH_CONTRACT_TESTS=1 docker compose --profile test run --rm backend-contract-tests
+```
+
+Python / Flask バックエンド単体の内部テストを実行する場合:
+
+```bash
+docker compose run --rm backend-python pytest
+```
