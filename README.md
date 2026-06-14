@@ -125,7 +125,7 @@ extra_hosts:
 ## 他言語版
 
 本サイトは Python / Flask 版です。
-ブランチを切り替えれば Go / Java / PHP / Python 版にもなります。
+ブランチを切り替えれば Go / Java / PHP / Ruby 版にもなります。
 
 ブランチ名がそのままその言語版になります。
 
