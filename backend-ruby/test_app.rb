@@ -25,6 +25,16 @@ class FakeTrino
   end
 end
 
+class FailingTrino
+  def ping
+    false
+  end
+
+  def execute(_sql)
+    raise "trino unavailable"
+  end
+end
+
 class LogSearchAppTest < Minitest::Test
   include Rack::Test::Methods
 
@@ -136,5 +146,15 @@ class LogSearchAppTest < Minitest::Test
     assert_equal 1, payload["count"]
     assert_equal "systemd", payload["filters"]["program"]
     assert_equal "2026/06/02 20:11:55 JST", payload["logs"][0]["display_time"]
+  end
+
+  def test_post_api_logs_returns_json_error
+    LogSearchApp.set :trino_client, FailingTrino.new
+
+    post "/api/logs", JSON.generate({ message: "sshd" }), "CONTENT_TYPE" => "application/json"
+
+    assert_equal 502, last_response.status
+    assert_includes last_response.content_type, "application/json"
+    assert_equal({ "error" => "trino unavailable" }, JSON.parse(last_response.body))
   end
 end

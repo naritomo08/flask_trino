@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -16,6 +17,8 @@ type fakeTrino struct {
 	queries []string
 }
 
+type failingTrino struct{}
+
 func (f *fakeTrino) Ping(ctx context.Context) bool {
 	return true
 }
@@ -29,6 +32,14 @@ func (f *fakeTrino) Execute(ctx context.Context, sql string, timeout time.Durati
 		"Reached target sshd-keygen.target.",
 		"syslog",
 	}}, []string{"event_time", "host", "program", "msg", "log_type"}, nil
+}
+
+func (f *failingTrino) Ping(ctx context.Context) bool {
+	return false
+}
+
+func (f *failingTrino) Execute(ctx context.Context, sql string, timeout time.Duration) ([][]any, []string, error) {
+	return nil, nil, errors.New("trino unavailable")
 }
 
 func TestFormatTimestampConvertsEpochMillisToJST(t *testing.T) {
@@ -169,6 +180,30 @@ func TestPostAPILogsAcceptsJSON(t *testing.T) {
 	assertContains(t, body, `"display_time":"2026/06/02 20:11:55 JST"`)
 	assertContains(t, client.queries[0], `FROM "iceberg"."logs"."syslog_events"`)
 	assertContains(t, client.queries[0], `FROM "iceberg"."logs"."authlog_events"`)
+}
+
+func TestPostAPILogsReturnsJSONError(t *testing.T) {
+	app, err := NewApp(&failingTrino{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(app.routes())
+	defer server.Close()
+
+	resp, err := http.Post(server.URL+"/api/logs", "application/json", strings.NewReader(`{"message":"sshd"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadGateway {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	if contentType := resp.Header.Get("Content-Type"); !strings.Contains(contentType, "application/json") {
+		t.Fatalf("content type = %q", contentType)
+	}
+	body := responseBody(t, resp)
+	assertContains(t, body, `"error":"trino unavailable"`)
 }
 
 func assertContains(t *testing.T, value, needle string) {

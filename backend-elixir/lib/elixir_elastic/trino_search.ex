@@ -3,7 +3,6 @@ defmodule ElixirElastic.TrinoSearch do
 
   @log_types ["syslog", "authlog"]
   @jst_offset_seconds 9 * 60 * 60
-  @default_limit 50
 
   def log_types, do: @log_types
 
@@ -34,7 +33,7 @@ defmodule ElixirElastic.TrinoSearch do
     |> Enum.map(&select_for_log_type(&1, filters))
     |> Enum.join("\nUNION ALL\n")
     |> then(fn sql ->
-      "SELECT * FROM (\n#{sql}\n) logs\nORDER BY event_time DESC\nLIMIT #{@default_limit}"
+      "SELECT * FROM (\n#{sql}\n) logs\nORDER BY event_time DESC\nLIMIT #{trino_limit()}"
     end)
   end
 
@@ -49,15 +48,29 @@ defmodule ElixirElastic.TrinoSearch do
   def time_bound("", :to, date), do: "#{Date.to_iso8601(date)} 23:59:59"
   def time_bound(nil, :to, date), do: "#{Date.to_iso8601(date)} 23:59:59"
 
-  def time_bound(value, _direction, date) do
-    value = to_string(value)
+  def time_bound(value, direction, date) do
+    value = String.trim(to_string(value))
 
-    case Time.from_iso8601(add_seconds(value)) do
-      {:ok, time} ->
-        "#{Date.to_iso8601(date)} #{Calendar.strftime(time, "%H:%M:%S")}"
+    cond do
+      String.contains?(value, "T") ->
+        case parse_bound_datetime(value) do
+          {:ok, datetime} ->
+            datetime
+            |> DateTime.add(@jst_offset_seconds, :second)
+            |> Calendar.strftime("%Y-%m-%d %H:%M:%S")
 
-      {:error, _reason} ->
-        "#{Date.to_iso8601(date)} 00:00:00"
+          :error ->
+            fallback_time_bound(direction, date)
+        end
+
+      true ->
+        case Time.from_iso8601(add_seconds(value)) do
+          {:ok, time} ->
+            "#{Date.to_iso8601(date)} #{Calendar.strftime(time, "%H:%M:%S")}"
+
+          {:error, _reason} ->
+            fallback_time_bound(direction, date)
+        end
     end
   end
 
@@ -257,6 +270,24 @@ defmodule ElixirElastic.TrinoSearch do
     end
   end
 
+  defp parse_bound_datetime(value) do
+    cond do
+      match?({:ok, _, _}, DateTime.from_iso8601(value)) ->
+        {:ok, datetime, _offset} = DateTime.from_iso8601(value)
+        {:ok, datetime}
+
+      match?({:ok, _}, NaiveDateTime.from_iso8601(value)) ->
+        {:ok, naive} = NaiveDateTime.from_iso8601(value)
+        {:ok, DateTime.from_naive!(naive, "Etc/UTC") |> DateTime.add(-@jst_offset_seconds, :second)}
+
+      true ->
+        :error
+    end
+  end
+
+  defp fallback_time_bound(:to, date), do: "#{Date.to_iso8601(date)} 23:59:59"
+  defp fallback_time_bound(_direction, date), do: "#{Date.to_iso8601(date)} 00:00:00"
+
   defp add_seconds(value) do
     if String.length(value) == 5, do: value <> ":00", else: value
   end
@@ -277,6 +308,7 @@ defmodule ElixirElastic.TrinoSearch do
   defp trino_password, do: Application.fetch_env!(:elixir_elastic, :trino_password)
   defp trino_catalog, do: Application.fetch_env!(:elixir_elastic, :trino_catalog)
   defp trino_schema, do: Application.fetch_env!(:elixir_elastic, :trino_schema)
+  defp trino_limit, do: Application.fetch_env!(:elixir_elastic, :trino_limit)
   defp syslog_table, do: Application.fetch_env!(:elixir_elastic, :syslog_table)
   defp authlog_table, do: Application.fetch_env!(:elixir_elastic, :authlog_table)
   defp timestamp_column, do: Application.fetch_env!(:elixir_elastic, :timestamp_column)

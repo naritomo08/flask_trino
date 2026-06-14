@@ -353,12 +353,12 @@ func (a *App) apiSearchLogs(w http.ResponseWriter, r *http.Request) {
 
 	filters, err := filtersFromRequest(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeJSONStatus(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
 	logs, err := searchLogs(r.Context(), a.client, filters)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		writeJSONStatus(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
 	}
 
@@ -725,7 +725,12 @@ func acceptsJSON(r *http.Request) bool {
 }
 
 func writeJSON(w http.ResponseWriter, value any) {
+	writeJSONStatus(w, http.StatusOK, value)
+}
+
+func writeJSONStatus(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	_ = encoder.Encode(value)

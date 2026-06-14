@@ -29,6 +29,14 @@ class FakeTrino:
         )
 
 
+class FailingTrino:
+    def ping(self):
+        return False
+
+    def execute(self, sql):
+        raise RuntimeError("trino unavailable")
+
+
 @pytest.fixture()
 def fake_client(monkeypatch):
     client = FakeTrino()
@@ -196,3 +204,16 @@ def test_post_api_logs_with_empty_filters_searches_all_logs(flask_client, fake_c
     assert payload["logs"][0]["display_time"] == "2026/06/02 20:11:55 JST"
     assert 'FROM "iceberg"."logs"."syslog_events"' in fake_client.queries[-1]
     assert 'FROM "iceberg"."logs"."authlog_events"' in fake_client.queries[-1]
+
+
+def test_post_api_logs_returns_json_error(monkeypatch):
+    backend = log_backend.TrinoLogBackend(client_factory=lambda: FailingTrino())
+    monkeypatch.setattr(flask_app, "get_backend", lambda: backend)
+    flask_app.app.config.update(TESTING=True)
+    client = flask_app.app.test_client()
+
+    response = client.post("/api/logs", json={"message": "sshd"})
+
+    assert response.status_code == 502
+    assert response.content_type.startswith("application/json")
+    assert response.get_json() == {"error": "trino unavailable"}

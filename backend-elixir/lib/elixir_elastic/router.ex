@@ -111,14 +111,12 @@ defmodule ElixirElastic.Router do
   get "/api/logs" do
     conn = fetch_query_params(conn)
     filters = normalize_filters(conn.query_params)
-    logs = TrinoSearch.search_logs(filters)
-    json(conn, %{filters: filters, count: length(logs), logs: logs})
+    api_search_logs(conn, filters)
   end
 
   post "/api/logs" do
     filters = normalize_filters(conn.body_params)
-    logs = TrinoSearch.search_logs(filters)
-    json(conn, %{filters: filters, count: length(logs), logs: logs})
+    api_search_logs(conn, filters)
   end
 
   match _ do
@@ -163,6 +161,21 @@ defmodule ElixirElastic.Router do
     conn
     |> put_resp_content_type("application/json")
     |> send_resp(200, Jason.encode!(payload))
+  end
+
+  defp json(conn, status, payload) do
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(status, Jason.encode!(payload))
+  end
+
+  defp api_search_logs(conn, filters) do
+    try do
+      logs = TrinoSearch.search_logs(filters)
+      json(conn, %{filters: filters, count: length(logs), logs: logs})
+    rescue
+      exception -> json(conn, 502, %{error: Exception.message(exception)})
+    end
   end
 
   defp accepts_json?(conn) do

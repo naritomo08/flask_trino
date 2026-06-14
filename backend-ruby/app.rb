@@ -147,7 +147,7 @@ class LogSearchApp < Sinatra::Base
     logs = search_logs(client, filters)
     json_response(filters: filters, count: logs.length, logs: logs)
   rescue StandardError => e
-    status 500
+    status 502
     json_response(error: e.message)
   end
 

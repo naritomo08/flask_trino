@@ -142,8 +142,12 @@ function create_app(): \Slim\App
 
     $app->map(['GET', 'POST'], '/api/logs', function (Request $request, Response $response) use ($config): Response {
         $filters = filters_from_request($request);
-        $logs = search_logs($filters, $config);
-        return json_response($response, ['filters' => $filters, 'count' => count($logs), 'logs' => $logs]);
+        try {
+            $logs = search_logs($filters, $config);
+            return json_response($response, ['filters' => $filters, 'count' => count($logs), 'logs' => $logs]);
+        } catch (Throwable $error) {
+            return json_response($response, ['error' => $error->getMessage()], 502);
+        }
     });
 
     $app->addErrorMiddleware(true, true, true);
