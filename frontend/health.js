@@ -3,7 +3,8 @@ const backends = [
   { id: "go", label: "Go" },
   { id: "java", label: "Java" },
   { id: "php", label: "PHP" },
-  { id: "ruby", label: "Ruby" }
+  { id: "ruby", label: "Ruby" },
+  { id: "elixir", label: "Elixir" }
 ];
 
 const healthSummary = document.getElementById("health-summary");

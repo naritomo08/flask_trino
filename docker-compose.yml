@@ -23,6 +23,7 @@ services:
       - backend-java
       - backend-php
       - backend-ruby
+      - backend-elixir
     restart: unless-stopped
 
   backend-python:
@@ -71,6 +72,16 @@ services:
       <<: *trino-env
     extra_hosts: *trino-hosts
 
+  backend-elixir:
+    build: ./backend-elixir
+    ports:
+      - "5016:5000"
+    restart: unless-stopped
+    environment:
+      <<: *trino-env
+      SESSION_SECRET: change-me-for-production
+    extra_hosts: *trino-hosts
+
   backend-contract-tests:
     build: ./backend-python
     profiles:
@@ -81,9 +92,10 @@ services:
       - backend-java
       - backend-php
       - backend-ruby
+      - backend-elixir
     volumes:
       - ./tests:/app/tests:ro
     environment:
-      BACKEND_TARGETS: flask=http://backend-python:5000,go=http://backend-go:5000,java=http://backend-java:5000,php=http://backend-php:5000,ruby=http://backend-ruby:5000
+      BACKEND_TARGETS: flask=http://backend-python:5000,go=http://backend-go:5000,java=http://backend-java:5000,php=http://backend-php:5000,ruby=http://backend-ruby:5000,elixir=http://backend-elixir:5000
       RUN_SEARCH_CONTRACT_TESTS: ${RUN_SEARCH_CONTRACT_TESTS:-0}
     command: ["pytest", "/app/tests"]

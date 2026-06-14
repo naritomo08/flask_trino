@@ -22,6 +22,7 @@ docker compose up --build
 | Java | http://localhost:5013 |
 | PHP | http://localhost:5014 |
 | Ruby | http://localhost:5015 |
+| Elixir | http://localhost:5016 |
 
 フロントエンド画面の Backend セレクトで検索に使うバックエンドを切り替えられます。疎通確認は http://localhost:8081/health です。
 
@@ -109,7 +110,7 @@ environment:
 docker compose --profile test run --rm backend-contract-tests
 ```
 
-このテストでは `/`, `/health`, `/api/options` の共通レスポンスを確認します。
+このテストでは Python / Flask, Go, Java, PHP, Ruby, Elixir の `/`, `/health`, `/api/options` の共通レスポンスを確認します。
 実際に Trino へ検索する `/api/logs` の契約テストは通常スキップされます。Trino に接続できる環境では以下で有効化できます。
 
 ```bash

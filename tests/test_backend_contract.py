@@ -13,6 +13,7 @@ DEFAULT_TARGETS = {
     "java": "http://backend-java:5000",
     "php": "http://backend-php:5000",
     "ruby": "http://backend-ruby:5000",
+    "elixir": "http://backend-elixir:5000",
 }
 
 
