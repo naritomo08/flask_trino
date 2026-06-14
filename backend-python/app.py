@@ -1,12 +1,9 @@
-import os
-
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, jsonify, request
 
 from backend_factory import create_backend
 
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY") or os.getenv("SESSION_SECRET", "dev-secret-key")
 backend = create_backend()
 
 
@@ -33,45 +30,14 @@ def filters_from_request():
     return normalize_filters(request.args)
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.get("/")
 def index():
-    if request.method == "GET" and request.accept_mimetypes.best == "application/json":
-        return jsonify(
-            {
-                "service": "flask-trino-backend",
-                "endpoints": ["/health", "/api/options", "/api/logs"],
-            }
-        )
-
-    if request.method == "POST":
-        session["filters"] = filters_from_request()
-        session["searched"] = True
-        return redirect(url_for("index"))
-
-    if request.args:
-        filters = filters_from_request()
-        searched = True
-    else:
-        searched = session.pop("searched", False)
-        filters = normalize_filters(session.pop("filters", {})) if searched else normalize_filters({})
-
-    current_backend = get_backend()
-    logs = current_backend.search_logs(filters) if searched else []
-    options = current_backend.get_filter_options()
-    return render_template(
-        "index.html",
-        filters=filters,
-        logs=logs,
-        options=options,
-        searched=searched,
+    return jsonify(
+        {
+            "service": "flask-trino-backend",
+            "endpoints": ["/health", "/api/options", "/api/logs"],
+        }
     )
-
-
-@app.get("/clear")
-def clear_filters():
-    session.pop("filters", None)
-    session.pop("searched", None)
-    return redirect(url_for("index"))
 
 
 @app.get("/health")

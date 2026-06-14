@@ -11,5 +11,4 @@ config :elixir_elastic,
   timestamp_column: System.get_env("TRINO_TIMESTAMP_COLUMN", "ts"),
   timestamp_expression: System.get_env("TRINO_TIMESTAMP_EXPRESSION", ""),
   trino_limit: String.to_integer(System.get_env("TRINO_LIMIT", "50")),
-  session_secret: System.get_env("SESSION_SECRET", "dev-secret-key"),
   port: String.to_integer(System.get_env("PORT", "5000"))

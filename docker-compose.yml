@@ -33,7 +33,6 @@ services:
     restart: unless-stopped
     environment:
       <<: *trino-env
-      FLASK_SECRET_KEY: change-me-for-production
     extra_hosts: *trino-hosts
 
   backend-go:
@@ -79,7 +78,6 @@ services:
     restart: unless-stopped
     environment:
       <<: *trino-env
-      SESSION_SECRET: change-me-for-production
     extra_hosts: *trino-hosts
 
   backend-contract-tests:

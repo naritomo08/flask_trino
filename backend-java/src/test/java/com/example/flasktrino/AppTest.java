@@ -93,9 +93,7 @@ class AppTest {
                 "authlog_events",
                 "ts",
                 "",
-                50,
-                "static",
-                "java_log_search_filters"
+                50
         );
     }
 

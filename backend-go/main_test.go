@@ -5,9 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -126,7 +124,7 @@ func TestSearchLogsExecutesSQLAndFormatsResult(t *testing.T) {
 	}
 }
 
-func TestPostIndexSearchKeepsFiltersInBodyOnce(t *testing.T) {
+func TestIndexReturnsAPIDescription(t *testing.T) {
 	client := &fakeTrino{}
 	app, err := NewApp(client)
 	if err != nil {
@@ -135,28 +133,15 @@ func TestPostIndexSearchKeepsFiltersInBodyOnce(t *testing.T) {
 	server := httptest.NewServer(app.routes())
 	defer server.Close()
 
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	httpClient := &http.Client{Jar: jar}
-	form := url.Values{"program": {"systemd"}, "message": {"sshd"}}
-	resp, err := httpClient.PostForm(server.URL+"/", form)
+	resp, err := http.Get(server.URL + "/")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
 
 	body := responseBody(t, resp)
-	assertContains(t, body, `method="post"`)
-	assertContains(t, body, `id="search-form"`)
-	assertContains(t, body, `id="results-summary"`)
-	assertContains(t, body, `id="results-body"`)
-	assertContains(t, body, `src="/static/search.js"`)
-	assertContains(t, body, `type="time"`)
-	assertContains(t, body, `value="systemd"`)
-	assertContains(t, body, `value="sshd"`)
-	assertContains(t, body, "2026/06/02 20:11:55 JST")
+	assertContains(t, body, `"service":"go-trino-backend"`)
+	assertContains(t, body, `"/api/logs"`)
 }
 
 func TestPostAPILogsAcceptsJSON(t *testing.T) {

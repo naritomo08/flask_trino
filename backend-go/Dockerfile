@@ -11,8 +11,6 @@ FROM alpine:3.20
 WORKDIR /app
 
 COPY --from=builder /out/trino-log-search /usr/local/bin/trino-log-search
-COPY templates ./templates
-COPY static ./static
 
 EXPOSE 5000
 

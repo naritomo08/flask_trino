@@ -95,23 +95,11 @@ class LogSearchApp < Sinatra::Base
   LOG_TYPES = %w[syslog authlog].freeze
   JST_OFFSET = "+09:00"
 
-  configure do
-    set :public_folder, File.expand_path("static", __dir__)
-  end
-
   get "/" do
-    if request.env.fetch("HTTP_ACCEPT", "").include?("application/json")
-      return json_response(
-        service: "ruby-trino-backend",
-        endpoints: ["/health", "/api/options", "/api/logs"]
-      )
-    end
-
-    send_file File.join(settings.public_folder, "index.html")
-  end
-
-  post "/" do
-    redirect "/"
+    json_response(
+      service: "ruby-trino-backend",
+      endpoints: ["/health", "/api/options", "/api/logs"]
+    )
   end
 
   get "/health" do

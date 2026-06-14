@@ -92,8 +92,6 @@ curl http://localhost:5011/health
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_LIMIT`: 最大取得件数
-- `FLASK_SECRET_KEY`: Python / Flask の画面用セッション秘密鍵
-
 時刻カラムが文字列などでそのまま比較できない場合は、`TRINO_TIMESTAMP_EXPRESSION` に Trino の SQL 式を設定できます。
 
 ```yaml

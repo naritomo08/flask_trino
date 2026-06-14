@@ -9,10 +9,8 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 COPY --from=build /src/target/flask-trino-1.0.0.jar /app/flask-trino.jar
-COPY static /app/static
 
 ENV PORT=5000
-ENV STATIC_DIR=/app/static
 
 EXPOSE 5000
 

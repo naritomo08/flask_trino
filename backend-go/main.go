@@ -1,23 +1,17 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"math"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -37,9 +31,7 @@ var (
 )
 
 type App struct {
-	client   TrinoExecutor
-	template *template.Template
-	sessions *SessionStore
+	client TrinoExecutor
 }
 
 type TrinoExecutor interface {
@@ -62,22 +54,6 @@ type Filters struct {
 }
 
 type LogRecord map[string]any
-
-type PageData struct {
-	Filters  Filters
-	Logs     []LogRecord
-	LogTypes []string
-	Searched bool
-}
-
-type PendingSearch struct {
-	Filters Filters
-}
-
-type SessionStore struct {
-	mu    sync.Mutex
-	items map[string]PendingSearch
-}
 
 type trinoColumn struct {
 	Name string `json:"name"`
@@ -111,28 +87,17 @@ func main() {
 }
 
 func NewApp(client TrinoExecutor) (*App, error) {
-	tpl, err := template.ParseFiles("templates/index.html")
-	if err != nil {
-		return nil, err
-	}
-
 	return &App{
-		client:   client,
-		template: tpl,
-		sessions: &SessionStore{
-			items: map[string]PendingSearch{},
-		},
+		client: client,
 	}, nil
 }
 
 func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.index)
-	mux.HandleFunc("/clear", a.clearFilters)
 	mux.HandleFunc("/health", a.health)
 	mux.HandleFunc("/api/options", a.apiOptions)
 	mux.HandleFunc("/api/logs", a.apiSearchLogs)
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	return mux
 }
 
@@ -253,73 +218,14 @@ func setTrinoAuth(req *http.Request) {
 }
 
 func (a *App) index(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		if acceptsJSON(r) {
-			writeJSON(w, map[string]any{
-				"service":   "go-trino-backend",
-				"endpoints": []string{"/health", "/api/options", "/api/logs"},
-			})
-			return
-		}
-	case http.MethodPost:
-		filters, err := filtersFromRequest(r)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		a.sessions.Save(w, r, filters)
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var filters Filters
-	searched := false
-	if r.URL.RawQuery != "" {
-		filters = filtersFromValues(r.URL.Query())
-		searched = true
-	} else if pending, ok := a.sessions.Pop(w, r); ok {
-		filters = pending.Filters
-		searched = true
-	} else {
-		filters = normalizeFilters(Filters{})
-	}
-
-	var logs []LogRecord
-	if searched {
-		var err error
-		logs, err = searchLogs(r.Context(), a.client, filters)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadGateway)
-			return
-		}
-	}
-
-	data := PageData{
-		Filters:  filters,
-		Logs:     logs,
-		LogTypes: logTypes,
-		Searched: searched,
-	}
-	var rendered bytes.Buffer
-	if err := a.template.Execute(&rendered, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(rendered.Bytes())
-}
-
-func (a *App) clearFilters(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	a.sessions.Clear(w, r)
-	http.Redirect(w, r, "/", http.StatusFound)
+	writeJSON(w, map[string]any{
+		"service":   "go-trino-backend",
+		"endpoints": []string{"/health", "/api/options", "/api/logs"},
+	})
 }
 
 func (a *App) apiOptions(w http.ResponseWriter, r *http.Request) {
@@ -391,14 +297,21 @@ func filtersFromRequest(r *http.Request) (Filters, error) {
 	return filtersFromValues(r.URL.Query()), nil
 }
 
-func filtersFromValues(values url.Values) Filters {
+func filtersFromValues(values map[string][]string) Filters {
+	get := func(key string) string {
+		items := values[key]
+		if len(items) == 0 {
+			return ""
+		}
+		return items[0]
+	}
 	return normalizeFilters(Filters{
-		TimeFrom: values.Get("time_from"),
-		TimeTo:   values.Get("time_to"),
-		LogType:  values.Get("log_type"),
-		Host:     values.Get("host"),
-		Program:  values.Get("program"),
-		Message:  values.Get("message"),
+		TimeFrom: get("time_from"),
+		TimeTo:   get("time_to"),
+		LogType:  get("log_type"),
+		Host:     get("host"),
+		Program:  get("program"),
+		Message:  get("message"),
 	})
 }
 
@@ -652,76 +565,6 @@ func formatTimestampString(value string) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func (s *SessionStore) Save(w http.ResponseWriter, r *http.Request, filters Filters) {
-	id := sessionID(r)
-	if id == "" {
-		id = randomID()
-		http.SetCookie(w, &http.Cookie{
-			Name:     "session_id",
-			Value:    id,
-			Path:     "/",
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-		})
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.items[id] = PendingSearch{Filters: filters}
-}
-
-func (s *SessionStore) Pop(w http.ResponseWriter, r *http.Request) (PendingSearch, bool) {
-	id := sessionID(r)
-	if id == "" {
-		return PendingSearch{}, false
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	pending, ok := s.items[id]
-	if ok {
-		delete(s.items, id)
-	}
-	return pending, ok
-}
-
-func (s *SessionStore) Clear(w http.ResponseWriter, r *http.Request) {
-	id := sessionID(r)
-	if id != "" {
-		s.mu.Lock()
-		delete(s.items, id)
-		s.mu.Unlock()
-	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
-}
-
-func sessionID(r *http.Request) string {
-	cookie, err := r.Cookie("session_id")
-	if err != nil {
-		return ""
-	}
-	return cookie.Value
-}
-
-func randomID() string {
-	buf := make([]byte, 24)
-	if _, err := rand.Read(buf); err != nil {
-		return strconv.FormatInt(time.Now().UnixNano(), 36)
-	}
-	return base64.RawURLEncoding.EncodeToString(buf)
-}
-
-func acceptsJSON(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept"), "application/json")
 }
 
 func writeJSON(w http.ResponseWriter, value any) {
