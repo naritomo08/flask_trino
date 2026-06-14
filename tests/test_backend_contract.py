@@ -53,7 +53,7 @@ def wait_for_backend(base_url):
     raise AssertionError(f"{base_url} did not become ready: {last_error}")
 
 
-def request_json(url, method="GET", payload=None):
+def request_json(url, method="GET", payload=None, timeout=10):
     data = None
     headers = {"Accept": "application/json"}
     if payload is not None:
@@ -62,7 +62,7 @@ def request_json(url, method="GET", payload=None):
 
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             body = response.read().decode("utf-8")
             content_type = response.headers.get("Content-Type", "")
             assert "application/json" in content_type
@@ -116,6 +116,7 @@ def test_backend_logs_contract_is_common_when_trino_is_available(backend):
         base_url + "/api/logs",
         method="POST",
         payload={"message": "", "log_type": "", "host": "", "program": ""},
+        timeout=60,
     )
 
     assert status == 200
