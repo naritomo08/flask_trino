@@ -155,11 +155,35 @@ button:hover {
 .summary {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 16px;
   padding: 16px 18px;
   border-bottom: 1px solid #e0e6ef;
   color: #59657a;
   font-weight: 700;
+}
+
+.summary-text {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  flex: 1;
+}
+
+.download-csv {
+  min-height: 38px;
+  padding: 9px 14px;
+  white-space: nowrap;
+}
+
+button:disabled {
+  background: #c5ceda;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  background: #c5ceda;
 }
 
 .table-wrap {
@@ -309,6 +333,10 @@ th {
   .header,
   .summary {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .summary-text {
     flex-direction: column;
   }
 
