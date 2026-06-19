@@ -1,8 +1,11 @@
+FROM alpine:3.21 AS frontend-builder
+
+WORKDIR /build
+
+COPY build-assets.sh index.html health.html health.js search.js styles.css ./
+RUN sh build-assets.sh . dist
+
 FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY index.html /usr/share/nginx/html/index.html
-COPY health.html /usr/share/nginx/html/health.html
-COPY health.js /usr/share/nginx/html/health.js
-COPY search.js /usr/share/nginx/html/search.js
-COPY styles.css /usr/share/nginx/html/styles.css
+COPY --from=frontend-builder /build/dist/ /usr/share/nginx/html/
