@@ -21,14 +21,8 @@ copy_hashed_asset() {
 
 styles_file=$(copy_hashed_asset styles.css)
 search_file=$(copy_hashed_asset search.js)
-health_file=$(copy_hashed_asset health.js)
 
 sed \
     -e "s|/styles.css|/$styles_file|g" \
     -e "s|/search.js|/$search_file|g" \
     "$source_dir/index.html" > "$output_dir/index.html"
-
-sed \
-    -e "s|/styles.css|/$styles_file|g" \
-    -e "s|/health.js|/$health_file|g" \
-    "$source_dir/health.html" > "$output_dir/health.html"

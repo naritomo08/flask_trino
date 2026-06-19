@@ -106,11 +106,15 @@ public class App {
 
         try {
             Filters filters = filtersFromRequest(exchange);
-            List<LogRecord> logs = searchLogs(queryClient, config, filters, clock);
+            SearchPage result = searchLogsPage(queryClient, config, filters, clock);
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("filters", filters);
-            payload.put("count", logs.size());
-            payload.put("logs", logs);
+            payload.put("count", result.logs.size());
+            payload.put("total", result.total);
+            payload.put("page", filters.page);
+            payload.put("size", filters.size);
+            payload.put("total_pages", Math.max(1, (result.total + filters.size - 1) / filters.size));
+            payload.put("logs", result.logs);
             sendJson(exchange, 200, payload);
         } catch (Exception ex) {
             sendJson(exchange, 502, Map.of("error", String.valueOf(ex.getMessage())));
@@ -119,6 +123,10 @@ public class App {
 
     static List<LogRecord> searchLogs(QueryClient client, Config config, Filters filters, Clock clock) throws Exception {
         QueryResult result = client.execute(buildQuery(config, filters, clock));
+        return rowsToLogs(result, config, filters);
+    }
+
+    static List<LogRecord> rowsToLogs(QueryResult result, Config config, Filters filters) {
         List<LogRecord> logs = new ArrayList<>();
         for (int i = 0; i < result.rows.size(); i++) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -127,7 +135,7 @@ public class App {
                 row.put(result.columns.get(j), values.get(j));
             }
             logs.add(new LogRecord(
-                    i,
+                    (filters.page - 1) * filters.size + i,
                     config.trinoCatalog + "." + config.trinoSchema,
                     row.get("event_time"),
                     formatTimestamp(row.get("event_time")),
@@ -140,22 +148,42 @@ public class App {
         return logs;
     }
 
+    static SearchPage searchLogsPage(QueryClient client, Config config, Filters filters, Clock clock) throws Exception {
+        QueryResult result = client.execute(buildQuery(config, filters, clock));
+        long total = 0;
+        int totalIndex = result.columns.indexOf("total_count");
+        if (!result.rows.isEmpty() && totalIndex >= 0 && totalIndex < result.rows.get(0).size()) {
+            total = Long.parseLong(String.valueOf(result.rows.get(0).get(totalIndex)));
+        }
+        return new SearchPage(rowsToLogs(result, config, filters), total);
+    }
+
     static String buildQuery(Config config, Filters filters, Clock clock) {
+        return "SELECT logs.*, count(*) OVER() AS total_count FROM (\n"
+                + unionQuery(config, filters, clock)
+                + "\n) logs\nORDER BY event_time DESC\nOFFSET "
+                + ((filters.page - 1) * filters.size)
+                + "\nLIMIT "
+                + filters.size;
+    }
+
+    static String buildCountQuery(Config config, Filters filters, Clock clock) {
+        return "SELECT count(*) AS total FROM (\n" + unionQuery(config, filters, clock) + "\n) logs";
+    }
+
+    static String unionQuery(Config config, Filters filters, Clock clock) {
         List<String> selects = new ArrayList<>();
         for (String logType : targetLogTypes(filters)) {
             selects.add(selectForLogType(config, filters, logType, clock));
         }
-        return "SELECT * FROM (\n"
-                + String.join("\nUNION ALL\n", selects)
-                + "\n) logs\nORDER BY event_time DESC\nLIMIT "
-                + config.trinoLimit;
+        return String.join("\nUNION ALL\n", selects);
     }
 
     static String selectForLogType(Config config, Filters filters, String logType, Clock clock) {
         String timestampSql = timestampExpressionSql(config);
         List<String> conditions = new ArrayList<>();
-        conditions.add(timestampSql + " >= TIMESTAMP " + sqlString(timeBound(filters.timeFrom, "from", clock)));
-        conditions.add(timestampSql + " <= TIMESTAMP " + sqlString(timeBound(filters.timeTo, "to", clock)));
+        conditions.add(timestampSql + " >= TIMESTAMP " + sqlString(timeBound(filters.timeFrom, "from", clock, filters.date)));
+        conditions.add(timestampSql + " <= TIMESTAMP " + sqlString(timeBound(filters.timeTo, "to", clock, filters.date)));
         if (!filters.host.isBlank()) {
             conditions.add(equalsCondition("host", filters.host));
         }
@@ -190,7 +218,16 @@ public class App {
     }
 
     static String timeBound(String value, String direction, Clock clock) {
-        LocalDate today = LocalDate.now(clock.withZone(JST));
+        return timeBound(value, direction, clock, "");
+    }
+
+    static String timeBound(String value, String direction, Clock clock, String date) {
+        LocalDate today;
+        try {
+            today = LocalDate.parse(date);
+        } catch (DateTimeParseException ex) {
+            today = LocalDate.now(clock.withZone(JST));
+        }
         String trimmed = value == null ? "" : value.trim();
         if (trimmed.isEmpty()) {
             return today + ("to".equals(direction) ? " 23:59:59" : " 00:00:00");
@@ -309,24 +346,39 @@ public class App {
 
     static Filters normalizeFilters(Map<String, String> values) {
         return new Filters(
+                trim(values.get("date")),
                 trim(values.get("time_from")),
                 trim(values.get("time_to")),
                 trim(values.get("log_type")),
                 trim(values.get("host")),
                 trim(values.get("program")),
-                trim(values.get("message"))
+                trim(values.get("message")),
+                positiveInt(values.get("page"), 1),
+                Math.min(positiveInt(values.get("size"), 25), 100)
         );
     }
 
     static Filters normalizeFilters(Filters filters) {
         return new Filters(
+                trim(filters.date),
                 trim(filters.timeFrom),
                 trim(filters.timeTo),
                 trim(filters.logType),
                 trim(filters.host),
                 trim(filters.program),
-                trim(filters.message)
+                trim(filters.message),
+                filters.page > 0 ? filters.page : 1,
+                filters.size > 0 ? Math.min(filters.size, 100) : 25
         );
+    }
+
+    static int positiveInt(String value, int fallback) {
+        try {
+            int parsed = Integer.parseInt(trim(value));
+            return parsed > 0 ? parsed : fallback;
+        } catch (NumberFormatException ex) {
+            return fallback;
+        }
     }
 
     static String trim(String value) {
@@ -341,7 +393,7 @@ public class App {
             try (InputStream body = exchange.getRequestBody()) {
                 byte[] bytes = body.readAllBytes();
                 if (bytes.length == 0) {
-                    return new Filters("", "", "", "", "", "");
+                    return new Filters("", "", "", "", "", "", "", 1, 25);
                 }
                 return normalizeFilters(JSON.readValue(bytes, Filters.class));
             }
@@ -431,12 +483,15 @@ public class App {
     }
 
     record Filters(
+            String date,
             String timeFrom,
             String timeTo,
             String logType,
             String host,
             String program,
-            String message
+            String message,
+            int page,
+            int size
     ) {
     }
 
@@ -450,6 +505,9 @@ public class App {
             String program,
             String msg
     ) {
+    }
+
+    record SearchPage(List<LogRecord> logs, long total) {
     }
 
     record QueryResult(List<List<Object>> rows, List<String> columns) {
@@ -478,7 +536,7 @@ public class App {
         @Override
         public QueryResult execute(String sql) throws Exception {
             HttpRequest.Builder builder = HttpRequest.newBuilder(statementUri)
-                    .timeout(java.time.Duration.ofSeconds(15))
+                    .timeout(java.time.Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(sql, StandardCharsets.UTF_8));
             applyHeaders(builder);
             HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
@@ -517,7 +575,7 @@ public class App {
                 }
 
                 HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(String.valueOf(nextUri)))
-                        .timeout(java.time.Duration.ofSeconds(15))
+                        .timeout(java.time.Duration.ofSeconds(60))
                         .GET();
                 applyHeaders(builder);
                 HttpResponse<String> response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

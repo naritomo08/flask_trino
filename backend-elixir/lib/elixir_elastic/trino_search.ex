@@ -20,21 +20,53 @@ defmodule ElixirElastic.TrinoSearch do
 
     case execute(sql, receive_timeout: 15_000) do
       {:ok, rows, columns} ->
-        Enum.map(rows, &format_row(&1, columns))
+        rows
+        |> Enum.with_index((filters["page"] - 1) * filters["size"])
+        |> Enum.map(fn {row, index} -> format_row(row, columns, index) end)
 
       {:error, reason} ->
         raise "Trino search failed: #{reason}"
     end
   end
 
+  def search_logs_page(filters) do
+    {rows, columns} =
+      case execute(build_query(filters), receive_timeout: 60_000) do
+        {:ok, rows, columns} -> {rows, columns}
+        {:error, reason} -> raise "Trino search failed: #{reason}"
+      end
+
+    total_index = Enum.find_index(columns, &(&1 == "total_count"))
+    total = if total_index && rows != [], do: rows |> hd() |> Enum.at(total_index) |> to_integer(), else: 0
+    offset = (filters["page"] - 1) * filters["size"]
+    logs = rows |> Enum.with_index(offset) |> Enum.map(fn {row, index} -> format_row(row, columns, index) end)
+    size = filters["size"]
+
+    %{
+      count: length(logs),
+      total: total,
+      page: filters["page"],
+      size: size,
+      total_pages: max(ceil(total / size), 1),
+      logs: logs
+    }
+  end
+
   def build_query(filters) do
+    size = filters["size"]
+    offset = (filters["page"] - 1) * size
+    "SELECT logs.*, count(*) OVER() AS total_count FROM (\n#{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET #{offset}\nLIMIT #{size}"
+  end
+
+  def build_count_query(filters) do
+    "SELECT count(*) AS total FROM (\n#{union_query(filters)}\n) logs"
+  end
+
+  defp union_query(filters) do
     filters
     |> target_log_types()
     |> Enum.map(&select_for_log_type(&1, filters))
     |> Enum.join("\nUNION ALL\n")
-    |> then(fn sql ->
-      "SELECT * FROM (\n#{sql}\n) logs\nORDER BY event_time DESC\nLIMIT #{trino_limit()}"
-    end)
   end
 
   def today_jst do
@@ -89,7 +121,7 @@ defmodule ElixirElastic.TrinoSearch do
   def format_timestamp(value), do: to_string(value)
 
   defp select_for_log_type(log_type, filters) do
-    date = today_jst()
+    date = target_date(filters)
     table = table_for_log_type(log_type)
     timestamp_sql = timestamp_expression_sql()
     from = time_bound(filters["time_from"], :from, date)
@@ -157,7 +189,7 @@ defmodule ElixirElastic.TrinoSearch do
         {:ok, rows, columns}
 
       next_uri ->
-        case Req.get(next_uri, maybe_auth(receive_timeout: 15_000)) do
+        case Req.get(next_uri, maybe_auth(receive_timeout: 60_000)) do
           {:ok, %{status: status, body: next_body}} when status in 200..299 ->
             collect_pages(next_body, rows, columns)
 
@@ -176,13 +208,35 @@ defmodule ElixirElastic.TrinoSearch do
 
   defp columns_for(_body, columns), do: columns
 
-  defp format_row(row, columns) do
+  defp format_row(row, columns, index) do
     columns
     |> Enum.zip(row)
     |> Map.new()
     |> Map.update("event_time", "", &format_timestamp/1)
+    |> Map.delete("total_count")
     |> Map.put_new("display_time", "")
     |> then(fn log -> Map.put(log, "display_time", Map.get(log, "event_time", "")) end)
+    |> Map.put("id", index)
+    |> Map.put("index", "#{trino_catalog()}.#{trino_schema()}")
+  end
+
+  defp target_date(%{"date" => value}) when is_binary(value) do
+    case Date.from_iso8601(value) do
+      {:ok, date} -> date
+      _ -> today_jst()
+    end
+  end
+
+  defp target_date(_filters), do: today_jst()
+
+  defp to_integer(value) when is_integer(value), do: value
+  defp to_integer(value) when is_float(value), do: trunc(value)
+
+  defp to_integer(value) do
+    case Integer.parse(to_string(value)) do
+      {number, _} -> number
+      _ -> 0
+    end
   end
 
   defp append_like(conditions, nil, _field), do: conditions

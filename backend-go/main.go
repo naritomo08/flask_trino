@@ -46,12 +46,15 @@ type TrinoClient struct {
 }
 
 type Filters struct {
+	Date     string `json:"date"`
 	TimeFrom string `json:"time_from"`
 	TimeTo   string `json:"time_to"`
 	LogType  string `json:"log_type"`
 	Host     string `json:"host"`
 	Program  string `json:"program"`
 	Message  string `json:"message"`
+	Page     int    `json:"page"`
+	Size     int    `json:"size"`
 }
 
 type LogRecord map[string]any
@@ -263,7 +266,7 @@ func (a *App) apiSearchLogs(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
-	logs, err := searchLogs(r.Context(), a.client, filters)
+	logs, total, err := searchLogsPage(r.Context(), a.client, filters)
 	if err != nil {
 		writeJSONStatus(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
 		return
@@ -272,6 +275,10 @@ func (a *App) apiSearchLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"filters": filters,
 		"count":   len(logs),
+		"total":   total,
+		"page":    filters.Page,
+		"size":    filters.Size,
+		"total_pages": int(math.Max(1, math.Ceil(float64(total)/float64(filters.Size)))),
 		"logs":    logs,
 	})
 }
@@ -307,65 +314,133 @@ func filtersFromValues(values map[string][]string) Filters {
 		return items[0]
 	}
 	return normalizeFilters(Filters{
+		Date:     get("date"),
 		TimeFrom: get("time_from"),
 		TimeTo:   get("time_to"),
 		LogType:  get("log_type"),
 		Host:     get("host"),
 		Program:  get("program"),
 		Message:  get("message"),
+		Page:     parsePositiveInt(get("page"), 1),
+		Size:     parsePositiveInt(get("size"), 25),
 	})
 }
 
 func normalizeFilters(filters Filters) Filters {
+	size := filters.Size
+	if size <= 0 {
+		size = 25
+	}
+	if size > 100 {
+		size = 100
+	}
+	page := filters.Page
+	if page <= 0 {
+		page = 1
+	}
 	return Filters{
+		Date:     strings.TrimSpace(filters.Date),
 		TimeFrom: strings.TrimSpace(filters.TimeFrom),
 		TimeTo:   strings.TrimSpace(filters.TimeTo),
 		LogType:  strings.TrimSpace(filters.LogType),
 		Host:     strings.TrimSpace(filters.Host),
 		Program:  strings.TrimSpace(filters.Program),
 		Message:  strings.TrimSpace(filters.Message),
+		Page:     page,
+		Size:     size,
 	}
+}
+
+func parsePositiveInt(value string, fallback int) int {
+	number, err := strconv.Atoi(value)
+	if err != nil || number <= 0 {
+		return fallback
+	}
+	return number
 }
 
 func searchLogs(ctx context.Context, client TrinoExecutor, filters Filters) ([]LogRecord, error) {
 	query := buildQuery(filters)
-	rows, columns, err := client.Execute(ctx, query, 15*time.Second)
+	rows, columns, err := client.Execute(ctx, query, 60*time.Second)
 	if err != nil {
 		return nil, err
 	}
+	return rowsToLogs(rows, columns, filters), nil
+}
 
+func rowsToLogs(rows [][]any, columns []string, filters Filters) []LogRecord {
 	logs := make([]LogRecord, 0, len(rows))
 	for rowNumber, row := range rows {
 		logRecord := LogRecord{
-			"id":           rowNumber,
+			"id":           (filters.Page-1)*filters.Size + rowNumber,
 			"index":        trinoCatalog + "." + trinoSchema,
 			"display_time": "",
 		}
 		for i, column := range columns {
-			if i < len(row) {
+			if i < len(row) && column != "total_count" {
 				logRecord[column] = row[i]
 			}
 		}
 		logRecord["display_time"] = formatTimestamp(logRecord["event_time"])
 		logs = append(logs, logRecord)
 	}
-	return logs, nil
+	return logs
+}
+
+func searchLogsPage(ctx context.Context, client TrinoExecutor, filters Filters) ([]LogRecord, int, error) {
+	rows, columns, err := client.Execute(ctx, buildQuery(filters), 60*time.Second)
+	if err != nil {
+		return nil, 0, err
+	}
+	total := 0
+	totalIndex := -1
+	for index, column := range columns {
+		if column == "total_count" {
+			totalIndex = index
+			break
+		}
+	}
+	if len(rows) > 0 && totalIndex >= 0 && totalIndex < len(rows[0]) {
+		switch value := rows[0][totalIndex].(type) {
+		case float64:
+			total = int(value)
+		case json.Number:
+			total, _ = strconv.Atoi(value.String())
+		default:
+			total, _ = strconv.Atoi(fmt.Sprint(value))
+		}
+	}
+	logs := rowsToLogs(rows, columns, filters)
+	return logs, total, nil
 }
 
 func buildQuery(filters Filters) string {
+	return fmt.Sprintf("SELECT logs.*, count(*) OVER() AS total_count FROM (\n%s\n) logs\nORDER BY event_time DESC\nOFFSET %d\nLIMIT %d",
+		unionQuery(filters), (filters.Page-1)*filters.Size, filters.Size)
+}
+
+func buildCountQuery(filters Filters) string {
+	return fmt.Sprintf("SELECT count(*) AS total FROM (\n%s\n) logs", unionQuery(filters))
+}
+
+func unionQuery(filters Filters) string {
 	selects := make([]string, 0, len(logTypes))
 	for _, logType := range targetLogTypes(filters) {
 		selects = append(selects, selectForLogType(logType, filters))
 	}
 	unionSQL := strings.Join(selects, "\nUNION ALL\n")
-	return fmt.Sprintf("SELECT * FROM (\n%s\n) logs\nORDER BY event_time DESC\nLIMIT %d", unionSQL, defaultLimit)
+	return unionSQL
 }
 
 func selectForLogType(logType string, filters Filters) string {
 	timestampSQL := timestampExpressionSQL()
+	targetDate := time.Now().In(jst)
+	if parsed, err := time.ParseInLocation("2006-01-02", filters.Date, jst); err == nil {
+		targetDate = parsed
+	}
 	conditions := []string{
-		fmt.Sprintf("%s >= TIMESTAMP %s", timestampSQL, sqlString(timeBound(filters.TimeFrom, "from", time.Now().In(jst)))),
-		fmt.Sprintf("%s <= TIMESTAMP %s", timestampSQL, sqlString(timeBound(filters.TimeTo, "to", time.Now().In(jst)))),
+		fmt.Sprintf("%s >= TIMESTAMP %s", timestampSQL, sqlString(timeBound(filters.TimeFrom, "from", targetDate))),
+		fmt.Sprintf("%s <= TIMESTAMP %s", timestampSQL, sqlString(timeBound(filters.TimeTo, "to", targetDate))),
 	}
 
 	if filters.Host != "" {

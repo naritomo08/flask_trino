@@ -132,8 +132,8 @@ class LogSearchApp < Sinatra::Base
   end
 
   def api_search_logs(filters)
-    logs = search_logs(client, filters)
-    json_response(filters: filters, count: logs.length, logs: logs)
+    result = search_logs_page(client, filters)
+    json_response(filters: filters, **result)
   rescue StandardError => e
     status 502
     json_response(error: e.message)
@@ -154,12 +154,15 @@ class LogSearchApp < Sinatra::Base
 
   def normalize_filters(source)
     {
+      "date" => source.fetch("date", "").to_s.strip,
       "time_from" => source.fetch("time_from", "").to_s.strip,
       "time_to" => source.fetch("time_to", "").to_s.strip,
       "log_type" => source.fetch("log_type", "").to_s.strip,
       "host" => source.fetch("host", "").to_s.strip,
       "program" => source.fetch("program", "").to_s.strip,
-      "message" => source.fetch("message", "").to_s.strip
+      "message" => source.fetch("message", "").to_s.strip,
+      "page" => positive_int(source.fetch("page", 1), 1),
+      "size" => [positive_int(source.fetch("size", 25), 25), 100].min
     }
   end
 
@@ -169,6 +172,12 @@ class LogSearchApp < Sinatra::Base
 
   def today_jst
     Time.now.getlocal(JST_OFFSET).to_date
+  end
+
+  def target_date(filters)
+    Date.iso8601(filters["date"])
+  rescue Date::Error
+    today_jst
   end
 
   def time_bound(value, direction, target_date = nil)
@@ -196,15 +205,26 @@ class LogSearchApp < Sinatra::Base
   end
 
   def build_query(filters)
+    size = filters["size"]
+    offset = (filters["page"] - 1) * size
+    "SELECT logs.*, count(*) OVER() AS total_count FROM (\n#{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET #{offset}\nLIMIT #{size}"
+  end
+
+  def build_count_query(filters)
+    "SELECT count(*) AS total FROM (\n#{union_query(filters)}\n) logs"
+  end
+
+  def union_query(filters)
     selects = target_log_types(filters).map { |log_type| select_for_log_type(log_type, filters) }
-    "SELECT * FROM (\n#{selects.join("\nUNION ALL\n")}\n) logs\nORDER BY event_time DESC\nLIMIT #{DEFAULT_LIMIT}"
+    selects.join("\nUNION ALL\n")
   end
 
   def select_for_log_type(log_type, filters)
     timestamp_sql = timestamp_expression_sql
+    date = target_date(filters)
     conditions = [
-      "#{timestamp_sql} >= TIMESTAMP #{sql_string(time_bound(filters["time_from"], "from"))}",
-      "#{timestamp_sql} <= TIMESTAMP #{sql_string(time_bound(filters["time_to"], "to"))}"
+      "#{timestamp_sql} >= TIMESTAMP #{sql_string(time_bound(filters["time_from"], "from", date))}",
+      "#{timestamp_sql} <= TIMESTAMP #{sql_string(time_bound(filters["time_to"], "to", date))}"
     ]
     conditions << equals_condition("host", filters["host"]) unless filters["host"].empty?
     conditions << equals_condition("program", filters["program"]) unless filters["program"].empty?
@@ -261,15 +281,42 @@ class LogSearchApp < Sinatra::Base
   end
 
   def search_logs(trino_client, filters)
-    rows, columns = trino_client.execute(build_query(filters))
+    rows, columns = trino_client.execute(build_query(filters), timeout: 60)
+    rows_to_logs(rows, columns, filters)
+  end
+
+  def rows_to_logs(rows, columns, filters)
     rows.each_with_index.map do |row, index|
       source = columns.zip(row).to_h
+      source.delete("total_count")
       source.merge(
-        "id" => index,
+        "id" => ((filters["page"] - 1) * filters["size"]) + index,
         "index" => "#{TRINO_CATALOG}.#{TRINO_SCHEMA}",
         "display_time" => format_timestamp(source["event_time"])
       )
     end
+  end
+
+  def search_logs_page(trino_client, filters)
+    rows, columns = trino_client.execute(build_query(filters), timeout: 60)
+    total_index = columns.index("total_count")
+    total = total_index ? rows.dig(0, total_index).to_i : 0
+    logs = rows_to_logs(rows, columns, filters)
+    {
+      count: logs.length,
+      total: total,
+      page: filters["page"],
+      size: filters["size"],
+      total_pages: [(total.to_f / filters["size"]).ceil, 1].max,
+      logs: logs
+    }
+  end
+
+  def positive_int(value, fallback)
+    parsed = Integer(value)
+    parsed.positive? ? parsed : fallback
+  rescue ArgumentError, TypeError
+    fallback
   end
 
   def format_timestamp(value)

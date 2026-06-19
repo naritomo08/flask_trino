@@ -3,93 +3,58 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Trino Iceberg Log Search</title>
+    <meta name="description" content="Trino / Iceberg に保存されたログを検索するアプリ">
+    <title>Trino Log Search</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <main class="shell">
-      <section class="header">
-        <div>
-          <p class="eyebrow">Trino Iceberg Log Search</p>
-          <h1>当日ログ検索</h1>
-          <p class="note">検索対象日は JST の当日です。条件に一致したログのうち最新50件のみ表示します。</p>
-        </div>
-        <div class="health-actions">
-          <a class="reset-link" href="/health">疎通確認</a>
-        </div>
-      </section>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="/" data-route>
+          <span class="brand-mark">T</span>
+          <span>
+            <strong>Trino Log Search</strong>
+            <small>Iceberg log discovery</small>
+          </span>
+        </a>
+        <nav class="header-nav">
+          <label class="backend-selector">
+            <span>Backend</span>
+            <select id="backend-select" aria-label="利用するバックエンド">
+              <option value="elixir">Elixir</option>
+              <option value="flask">Python</option>
+              <option value="go">Go</option>
+              <option value="java">Java</option>
+              <option value="php">PHP</option>
+              <option value="ruby">Ruby</option>
+            </select>
+          </label>
+          <a class="nav-link" href="/" data-route>ログ検索</a>
+          <a class="nav-link" href="/health" data-route>稼働状況</a>
+          <a class="api-link" id="api-link" href="#" target="_blank" rel="noopener noreferrer">JSON API</a>
+        </nav>
+      </div>
+    </header>
 
-      <form id="search-form" class="search" action="/api/logs" method="post">
-        <label>
-          <span>Backend</span>
-          <select id="backend-language" name="backend_language">
-            <option value="elixir">Elixir</option>
-            <option value="flask">Python</option>
-            <option value="go">Go</option>
-            <option value="java">Java</option>
-            <option value="php">PHP</option>
-            <option value="ruby">Ruby</option>
-          </select>
-        </label>
-        <label>
-          <span>TIME From (JST)</span>
-          <input type="time" name="time_from">
-        </label>
-        <label>
-          <span>TIME To (JST)</span>
-          <input type="time" name="time_to">
-        </label>
-        <label>
-          <span>LOG</span>
-          <select id="log-type" name="log_type">
-            <option value="">すべて</option>
-            <option value="syslog">syslog</option>
-            <option value="authlog">authlog</option>
-          </select>
-        </label>
-        <label>
-          <span>HOST</span>
-          <input
-            type="search"
-            name="host"
-            placeholder="例: elastic1, flink1"
-            aria-label="Host"
-          >
-        </label>
-        <label>
-          <span>PROGRAM</span>
-          <input
-            type="search"
-            name="program"
-            placeholder="例: sshd, systemd, hdfs"
-            aria-label="Program"
-          >
-        </label>
-        <label class="message-filter">
-          <span>Message</span>
-          <input
-            type="search"
-            name="message"
-            placeholder="例: accepted, JournalNodeSyncer"
-            aria-label="Message"
-            autofocus
-          >
-        </label>
-        <div class="search-actions">
-          <button class="reset-link" type="reset">クリア</button>
-          <button type="submit">検索</button>
-        </div>
-      </form>
-
-      <section id="results" class="results" aria-live="polite">
-        <div id="results-summary" class="summary">
-          <div id="summary-text" class="summary-text">
-            <span>検索を実施してください</span>
-          </div>
-        </div>
-        <p id="results-body" class="empty">検索条件を入力して検索ボタンを押してください。</p>
-      </section>
+    <main id="app" class="container" aria-live="polite">
+      <div class="loading-state">読み込み中…</div>
     </main>
+
+    <footer class="site-footer">
+      <div class="container">Trino × Iceberg log search</div>
+    </footer>
+
+    <dialog id="log-dialog" class="log-dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">LOG DETAIL</p>
+          <h2>ログ詳細</h2>
+        </div>
+        <button class="dialog-close" type="button" aria-label="閉じる" data-dialog-close>×</button>
+      </div>
+      <div id="log-detail"></div>
+    </dialog>
+
     <script src="/search.js"></script>
   </body>
 </html>

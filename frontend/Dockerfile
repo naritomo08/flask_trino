@@ -2,7 +2,7 @@ FROM alpine:3.21 AS frontend-builder
 
 WORKDIR /build
 
-COPY build-assets.sh index.html health.html health.js search.js styles.css ./
+COPY build-assets.sh index.html search.js styles.css ./
 RUN sh build-assets.sh . dist
 
 FROM nginx:1.27-alpine

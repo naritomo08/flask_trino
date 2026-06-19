@@ -48,7 +48,21 @@ Trino / Iceberg / ログ収集基盤はこの Compose には含めません。�
 - `program`: プログラム名
 - `message`: メッセージ
 
-検索対象日は JST の当日固定です。画面では開始時刻と終了時刻だけを指定し、条件に一致したログのうち最新 50 件を表示します。
+画面では対象日と開始・終了時刻をJSTで指定できます。検索結果は総件数付きでページングされ、1ページあたり10・25・50・100件から選択できます。
+
+## フロントエンド機能
+
+- 対象日、時間帯、ログ種別、ホスト、プログラム、メッセージ検索
+- 総件数表示とページング
+- 10・25・50・100件の表示件数切り替え
+- 検索語のハイライト
+- ログ詳細ダイアログ
+- 表示中ログのCSVダウンロード
+- URLへの検索条件保存と共有
+- Backend選択のLocal Storage保存
+- 6バックエンドとTrinoの稼働状況表示
+- 稼働状況の5秒ごとの自動更新
+- デスクトップ／モバイル対応
 
 ## API
 
@@ -58,12 +72,17 @@ Trino / Iceberg / ログ収集基盤はこの Compose には含めません。�
 curl -X POST http://localhost:8081/api/flask/logs \
   -H "Content-Type: application/json" \
   -d '{
+    "date":"2026-06-19",
     "time_from":"09:00",
     "time_to":"10:30",
     "message":"timeout",
-    "log_type":"syslog"
+    "log_type":"syslog",
+    "page":1,
+    "size":25
   }'
 ```
+
+レスポンスには `total`、`page`、`size`、`total_pages`、`logs` が含まれます。
 
 各バックエンドへ直接アクセスする場合:
 
@@ -93,7 +112,7 @@ curl http://localhost:5011/health
 - `TRINO_AUTHLOG_TABLE`: authlog 検索対象テーブル
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
-- `TRINO_LIMIT`: 最大取得件数
+- `TRINO_LIMIT`: 旧クライアント向けのデフォルト最大取得件数
 時刻カラムが文字列などでそのまま比較できない場合は、`TRINO_TIMESTAMP_EXPRESSION` に Trino の SQL 式を設定できます。
 
 ```yaml

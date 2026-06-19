@@ -9,6 +9,12 @@ function today_jst(): DateTimeImmutable
     return new DateTimeImmutable('today', new DateTimeZone(JST_TIMEZONE));
 }
 
+function target_date(array $filters): DateTimeImmutable
+{
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($filters['date'] ?? ''), new DateTimeZone(JST_TIMEZONE));
+    return $date instanceof DateTimeImmutable ? $date : today_jst();
+}
+
 function add_seconds(string $value): string
 {
     return substr_count($value, ':') === 1 ? "{$value}:00" : $value;
@@ -126,9 +132,10 @@ function target_log_types(array $filters): array
 function select_for_log_type(string $logType, array $filters, array $config): string
 {
     $timestampSql = timestamp_expression_sql($config);
+    $date = target_date($filters);
     $conditions = [
-        "{$timestampSql} >= TIMESTAMP " . sql_string(time_bound($filters['time_from'], 'from')),
-        "{$timestampSql} <= TIMESTAMP " . sql_string(time_bound($filters['time_to'], 'to')),
+        "{$timestampSql} >= TIMESTAMP " . sql_string(time_bound($filters['time_from'], 'from', $date)),
+        "{$timestampSql} <= TIMESTAMP " . sql_string(time_bound($filters['time_to'], 'to', $date)),
     ];
 
     if ($filters['host'] !== '') {
@@ -153,9 +160,20 @@ WHERE ' . implode(' AND ', $conditions);
 
 function build_query(array $filters, array $config): string
 {
+    $size = $filters['size'];
+    $offset = ($filters['page'] - 1) * $size;
+    return "SELECT logs.*, count(*) OVER() AS total_count FROM (\n" . union_query($filters, $config) . "\n) logs\nORDER BY event_time DESC\nOFFSET {$offset}\nLIMIT {$size}";
+}
+
+function build_count_query(array $filters, array $config): string
+{
+    return "SELECT count(*) AS total FROM (\n" . union_query($filters, $config) . "\n) logs";
+}
+
+function union_query(array $filters, array $config): string
+{
     $selects = array_map(fn ($logType) => select_for_log_type($logType, $filters, $config), target_log_types($filters));
-    $unionSql = implode("\nUNION ALL\n", $selects);
-    return "SELECT * FROM (\n{$unionSql}\n) logs\nORDER BY event_time DESC\nLIMIT {$config['default_limit']}";
+    return implode("\nUNION ALL\n", $selects);
 }
 
 function trino_headers(array $config): array
@@ -250,14 +268,36 @@ function trino_ping(array $config): bool
 
 function search_logs(array $filters, array $config): array
 {
-    [$rows, $columns] = trino_execute(build_query($filters, $config), $config);
+    [$rows, $columns] = trino_execute(build_query($filters, $config), $config, 60);
+    return rows_to_logs($rows, $columns, $filters, $config);
+}
+
+function rows_to_logs(array $rows, array $columns, array $filters, array $config): array
+{
     $logs = [];
     foreach ($rows as $index => $row) {
         $source = array_combine($columns, $row) ?: [];
-        $source['id'] = $index;
+        unset($source['total_count']);
+        $source['id'] = (($filters['page'] - 1) * $filters['size']) + $index;
         $source['index'] = "{$config['trino_catalog']}.{$config['trino_schema']}";
         $source['display_time'] = format_timestamp($source['event_time'] ?? null);
         $logs[] = $source;
     }
     return $logs;
+}
+
+function search_logs_page(array $filters, array $config): array
+{
+    [$rows, $columns] = trino_execute(build_query($filters, $config), $config, 60);
+    $totalIndex = array_search('total_count', $columns, true);
+    $total = $totalIndex !== false ? (int) ($rows[0][$totalIndex] ?? 0) : 0;
+    $logs = rows_to_logs($rows, $columns, $filters, $config);
+    return [
+        'count' => count($logs),
+        'total' => $total,
+        'page' => $filters['page'],
+        'size' => $filters['size'],
+        'total_pages' => max(1, (int) ceil($total / $filters['size'])),
+        'logs' => $logs,
+    ];
 }

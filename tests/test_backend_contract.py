@@ -115,16 +115,29 @@ def test_backend_logs_contract_is_common_when_trino_is_available(backend):
     status, payload = request_json(
         base_url + "/api/logs",
         method="POST",
-        payload={"message": "", "log_type": "", "host": "", "program": ""},
+        payload={
+            "date": "2026-06-19",
+            "message": "",
+            "log_type": "",
+            "host": "",
+            "program": "",
+            "page": 2,
+            "size": 10,
+        },
         timeout=60,
     )
 
     assert status == 200
-    assert set(payload) == {"filters", "count", "logs"}
+    assert set(payload) == {"filters", "count", "total", "page", "size", "total_pages", "logs"}
     assert isinstance(payload["count"], int)
+    assert isinstance(payload["total"], int)
+    assert payload["page"] == 2
+    assert payload["size"] == 10
+    assert payload["total_pages"] >= 1
     assert isinstance(payload["logs"], list)
     if payload["logs"]:
         first = payload["logs"][0]
+        assert first["id"] >= 10
         assert "display_time" in first
         assert "log_type" in first
         assert "host" in first

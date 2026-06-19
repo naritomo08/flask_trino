@@ -70,6 +70,9 @@ class TrinoLogBackend:
     def search_logs(self, filters):
         return search_logs(self.client_factory(), filters)
 
+    def search_logs_page(self, filters):
+        return search_logs_page(self.client_factory(), filters)
+
 
 def get_client():
     return TrinoClient(TRINO_URL)
@@ -155,11 +158,18 @@ def today_jst():
     return datetime.now(JST).date()
 
 
-def time_bound(value, direction, target_date=None):
-    target_date = target_date or today_jst()
+def target_date(filters):
+    try:
+        return datetime.strptime(filters.get("date", ""), "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return today_jst()
+
+
+def time_bound(value, direction, target_date_value=None):
+    target_date_value = target_date_value or today_jst()
     if not value:
         boundary = datetime_time(0, 0, 0) if direction == "from" else datetime_time(23, 59, 59)
-        return f"{target_date.isoformat()} {boundary.strftime('%H:%M:%S')}"
+        return f"{target_date_value.isoformat()} {boundary.strftime('%H:%M:%S')}"
 
     normalized = value.strip()
     if "T" in normalized:
@@ -173,10 +183,10 @@ def time_bound(value, direction, target_date=None):
 
     try:
         parsed_time = datetime_time.fromisoformat(add_seconds(normalized))
-        return f"{target_date.isoformat()} {parsed_time.strftime('%H:%M:%S')}"
+        return f"{target_date_value.isoformat()} {parsed_time.strftime('%H:%M:%S')}"
     except ValueError:
         boundary = datetime_time(0, 0, 0) if direction == "from" else datetime_time(23, 59, 59)
-        return f"{target_date.isoformat()} {boundary.strftime('%H:%M:%S')}"
+        return f"{target_date_value.isoformat()} {boundary.strftime('%H:%M:%S')}"
 
 
 def add_seconds(value):
@@ -185,17 +195,28 @@ def add_seconds(value):
     return value
 
 
-def build_query(filters):
+def union_query(filters):
     selects = [select_for_log_type(log_type, filters) for log_type in target_log_types(filters)]
-    union_sql = "\nUNION ALL\n".join(selects)
-    return f"SELECT * FROM (\n{union_sql}\n) logs\nORDER BY event_time DESC\nLIMIT {DEFAULT_LIMIT}"
+    return "\nUNION ALL\n".join(selects)
+
+
+def build_query(filters):
+    size = min(positive_int(filters.get("size"), DEFAULT_LIMIT), 100)
+    page = positive_int(filters.get("page"), 1)
+    offset = (page - 1) * size
+    return f"SELECT logs.*, count(*) OVER() AS total_count FROM (\n{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET {offset}\nLIMIT {size}"
+
+
+def build_count_query(filters):
+    return f"SELECT count(*) AS total FROM (\n{union_query(filters)}\n) logs"
 
 
 def select_for_log_type(log_type, filters):
     timestamp_sql = timestamp_expression_sql()
+    date = target_date(filters)
     conditions = [
-        f"{timestamp_sql} >= TIMESTAMP {sql_string(time_bound(filters['time_from'], 'from'))}",
-        f"{timestamp_sql} <= TIMESTAMP {sql_string(time_bound(filters['time_to'], 'to'))}",
+        f"{timestamp_sql} >= TIMESTAMP {sql_string(time_bound(filters['time_from'], 'from', date))}",
+        f"{timestamp_sql} <= TIMESTAMP {sql_string(time_bound(filters['time_to'], 'to', date))}",
     ]
 
     if filters["host"]:
@@ -261,19 +282,49 @@ def escape_like(value):
     return str(value).replace("!", "!!").replace("%", "!%").replace("_", "!_")
 
 
-def search_logs(client, filters):
-    query = build_query(filters)
-    rows, columns = client.execute(query)
+def positive_int(value, fallback):
+    try:
+        parsed = int(value)
+        return parsed if parsed > 0 else fallback
+    except (TypeError, ValueError):
+        return fallback
 
+
+def rows_to_logs(rows, columns, offset=0):
     logs = []
     for row_number, row in enumerate(rows):
         source = dict(zip(columns, row))
+        source.pop("total_count", None)
         event_time = source.get("event_time")
-        log = {
+        logs.append({
             **source,
-            "id": row_number,
+            "id": offset + row_number,
             "index": f"{TRINO_CATALOG}.{TRINO_SCHEMA}",
             "display_time": format_timestamp(event_time),
-        }
-        logs.append(log)
+        })
     return logs
+
+
+def search_logs(client, filters):
+    query = build_query(filters)
+    rows, columns = client.execute(query)
+    page = positive_int(filters.get("page"), 1)
+    size = min(positive_int(filters.get("size"), DEFAULT_LIMIT), 100)
+    return rows_to_logs(rows, columns, (page - 1) * size)
+
+
+def search_logs_page(client, filters):
+    page = positive_int(filters.get("page"), 1)
+    size = min(positive_int(filters.get("size"), 25), 100)
+    rows, columns = client.execute(build_query({**filters, "page": page, "size": size}), timeout=60)
+    total_index = columns.index("total_count") if "total_count" in columns else -1
+    total = int(rows[0][total_index]) if rows and total_index >= 0 else 0
+    logs = rows_to_logs(rows, columns, (page - 1) * size)
+    return {
+        "count": len(logs),
+        "total": total,
+        "page": page,
+        "size": size,
+        "total_pages": max(1, (total + size - 1) // size),
+        "logs": logs,
+    }

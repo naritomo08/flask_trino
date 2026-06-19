@@ -9,13 +9,22 @@ use Slim\Factory\AppFactory;
 function normalize_filters(array $args): array
 {
     return [
+        'date' => trim((string) ($args['date'] ?? '')),
         'time_from' => trim((string) ($args['time_from'] ?? '')),
         'time_to' => trim((string) ($args['time_to'] ?? '')),
         'log_type' => trim((string) ($args['log_type'] ?? '')),
         'host' => trim((string) ($args['host'] ?? '')),
         'program' => trim((string) ($args['program'] ?? '')),
         'message' => trim((string) ($args['message'] ?? '')),
+        'page' => positive_int($args['page'] ?? 1, 1),
+        'size' => min(positive_int($args['size'] ?? 25, 25), 100),
     ];
+}
+
+function positive_int(mixed $value, int $fallback): int
+{
+    $parsed = filter_var($value, FILTER_VALIDATE_INT);
+    return is_int($parsed) && $parsed > 0 ? $parsed : $fallback;
 }
 
 function filters_from_request(Request $request): array
@@ -76,8 +85,8 @@ function create_app(): \Slim\App
     $app->map(['GET', 'POST'], '/api/logs', function (Request $request, Response $response) use ($config): Response {
         $filters = filters_from_request($request);
         try {
-            $logs = search_logs($filters, $config);
-            return json_response($response, ['filters' => $filters, 'count' => count($logs), 'logs' => $logs]);
+            $result = search_logs_page($filters, $config);
+            return json_response($response, ['filters' => $filters, ...$result]);
         } catch (Throwable $error) {
             return json_response($response, ['error' => $error->getMessage()], 502);
         }

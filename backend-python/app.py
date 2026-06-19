@@ -13,13 +13,24 @@ def get_backend():
 
 def normalize_filters(args):
     return {
+        "date": args.get("date", "").strip(),
         "time_from": args.get("time_from", "").strip(),
         "time_to": args.get("time_to", "").strip(),
         "log_type": args.get("log_type", "").strip(),
         "host": args.get("host", "").strip(),
         "program": args.get("program", "").strip(),
         "message": args.get("message", "").strip(),
+        "page": positive_int(args.get("page"), 1),
+        "size": min(positive_int(args.get("size"), 25), 100),
     }
+
+
+def positive_int(value, fallback):
+    try:
+        parsed = int(value)
+        return parsed if parsed > 0 else fallback
+    except (TypeError, ValueError):
+        return fallback
 
 
 def filters_from_request():
@@ -60,10 +71,10 @@ def api_options():
 def api_search_logs():
     filters = filters_from_request()
     try:
-        logs = get_backend().search_logs(filters)
+        result = get_backend().search_logs_page(filters)
     except Exception as error:
         return jsonify({"error": str(error)}), 502
-    return jsonify({"filters": filters, "count": len(logs), "logs": logs})
+    return jsonify({"filters": filters, **result})
 
 
 if __name__ == "__main__":

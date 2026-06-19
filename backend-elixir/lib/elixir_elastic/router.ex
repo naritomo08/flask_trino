@@ -55,17 +55,27 @@ defmodule ElixirElastic.Router do
 
   def normalize_filters(params) do
     %{
+      "date" => clean(params["date"]),
       "time_from" => clean(params["time_from"]),
       "time_to" => clean(params["time_to"]),
       "log_type" => clean(params["log_type"]),
       "host" => clean(params["host"]),
       "program" => clean(params["program"]),
-      "message" => clean(params["message"])
+      "message" => clean(params["message"]),
+      "page" => positive_int(params["page"], 1),
+      "size" => min(positive_int(params["size"], 25), 100)
     }
   end
 
   defp clean(nil), do: ""
   defp clean(value), do: String.trim(to_string(value))
+
+  defp positive_int(value, fallback) do
+    case Integer.parse(to_string(value || "")) do
+      {number, ""} when number > 0 -> number
+      _ -> fallback
+    end
+  end
 
   defp json(conn, payload) do
     conn
@@ -81,8 +91,8 @@ defmodule ElixirElastic.Router do
 
   defp api_search_logs(conn, filters) do
     try do
-      logs = TrinoSearch.search_logs(filters)
-      json(conn, %{filters: filters, count: length(logs), logs: logs})
+      result = TrinoSearch.search_logs_page(filters)
+      json(conn, Map.put(result, :filters, filters))
     rescue
       exception -> json(conn, 502, %{error: Exception.message(exception)})
     end
