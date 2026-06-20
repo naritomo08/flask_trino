@@ -42,7 +42,7 @@ document.addEventListener("click", async (event) => {
   if (pageLink) {
     const params = new URLSearchParams(location.search);
     params.set("page", pageLink.dataset.page);
-    history.pushState({}, "", `/?${params}`);
+    history.pushState({}, "", `/search?${params}`);
     await renderSearchPage();
     return;
   }
@@ -52,7 +52,7 @@ document.addEventListener("click", async (event) => {
     const params = new URLSearchParams(location.search);
     params.set(filterButton.dataset.resultFilter, filterButton.dataset.filterValue);
     params.set("page", "1");
-    history.pushState({}, "", `/?${params}`);
+    history.pushState({}, "", `/search?${params}`);
     await renderSearchPage();
     return;
   }
@@ -87,14 +87,14 @@ document.addEventListener("submit", async (event) => {
     if (String(value).trim()) params.set(key, value);
   }
   params.set("page", "1");
-  history.pushState({}, "", `/?${params}`);
+  history.pushState({}, "", `/search?${params}`);
   await renderSearchPage();
 });
 
 document.addEventListener("reset", (event) => {
   if (!event.target.matches("[data-search-form]")) return;
   window.setTimeout(() => {
-    history.pushState({}, "", "/");
+    history.pushState({}, "", "/search");
     renderSearchPage();
   }, 0);
 });
@@ -111,77 +111,116 @@ async function renderRoute() {
   try {
     if (location.pathname === "/health") {
       await renderHealthPage();
-    } else {
+    } else if (location.pathname === "/search") {
       await renderSearchPage();
+    } else {
+      await renderHomePage();
     }
   } catch (error) {
     renderError(error.message || "画面を表示できませんでした。");
   }
 }
 
-async function renderSearchPage() {
+async function renderHomePage() {
   stopHealthMonitoring();
-  const params = searchParams();
+  const params = defaultSearchParams({ size: 6 });
   document.title = "Trino Log Search";
   apiLink.href = apiUrl("logs", params);
+  app.innerHTML = `<div class="loading-state">ログを読み込んでいます…</div>`;
+
+  const payload = await requestLogs(params);
+  currentLogs = payload.logs || [];
+  const total = Number(payload.total ?? payload.count ?? currentLogs.length);
 
   app.innerHTML = `
     <section class="hero">
-      <p class="eyebrow">LOG DISCOVERY</p>
+      <p class="eyebrow">OPERATIONAL LOG DISCOVERY</p>
       <h1>必要なログへ、<br>すばやくたどり着く。</h1>
       <p class="hero-copy">Trino / Iceberg に保存されたログを、日付・時刻・ホスト・プログラム・メッセージから横断検索できます。</p>
+      <div class="log-total" aria-label="本日のログ総量">
+        <span>本日のログ総量</span>
+        <strong>${total.toLocaleString("ja-JP")}<small> 件</small></strong>
+      </div>
+      ${searchForm({ ...params, size: 25 }, "hero-search")}
     </section>
-    ${searchForm(params)}
-    <section id="results-section" class="section">
-      <div class="loading-panel">ログを検索しています…</div>
+    <section class="section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">RECENT EVENTS</p>
+          <h2>最近のログ</h2>
+        </div>
+        <a class="text-link" href="/search" data-route>すべて表示 →</a>
+      </div>
+      ${currentLogs.length
+        ? `<div class="log-grid">${currentLogs.map(homeLogCard).join("")}</div>`
+        : emptyState("ログがありません", "対象日のログがまだ登録されていません。")}
     </section>
   `;
+}
+
+async function renderSearchPage() {
+  stopHealthMonitoring();
+  const params = searchParams();
+  document.title = "ログ検索 | Trino Log Search";
+  apiLink.href = apiUrl("logs", params);
+  app.innerHTML = `<div class="loading-state">ログを検索しています…</div>`;
 
   try {
     const payload = await requestLogs(params);
     currentLogs = payload.logs || [];
-    renderResults(payload, params);
+    renderSearchResults(payload, params);
   } catch (error) {
     currentLogs = [];
-    document.querySelector("#results-section").innerHTML = errorState(error.message);
+    app.innerHTML = `
+      <section class="search-page-header">
+        <p class="eyebrow">LOG SEARCH</p>
+        <div class="results-summary">
+          <div><h1>ログ検索</h1><p>条件はURLに保存されるため、そのまま共有できます。</p></div>
+        </div>
+        ${searchForm(params, "advanced-search")}
+      </section>
+      <section class="section">${errorState(error.message)}</section>
+    `;
   }
 }
 
-function searchForm(params) {
+function searchForm(params, className = "") {
   return `
-    <form class="filter-panel" data-search-form>
-      <div class="filter-heading">
-        <div>
-          <p class="eyebrow">SEARCH FILTERS</p>
-          <h2>検索条件</h2>
+    <form class="search-form ${className}" data-search-form>
+      <div class="primary-search">
+        <span class="search-icon" aria-hidden="true"></span>
+        <input
+          type="search"
+          name="message"
+          value="${escapeHtml(params.message)}"
+          placeholder="メッセージを検索（例: timeout, accepted）"
+          aria-label="ログメッセージ"
+        >
+        <button type="submit">検索</button>
+      </div>
+      <details class="filters">
+        <summary>詳細条件 <span>時刻はJSTです</span></summary>
+        <div class="filter-grid">
+          ${field("date", "対象日", `<input type="date" name="date" value="${escapeHtml(params.date)}">`)}
+          ${field("time_from", "開始時刻", `<input type="time" name="time_from" value="${escapeHtml(params.time_from)}">`)}
+          ${field("time_to", "終了時刻", `<input type="time" name="time_to" value="${escapeHtml(params.time_to)}">`)}
+          ${field("log_type", "ログ種別", `
+            <select name="log_type">
+              <option value="">すべて</option>
+              <option value="syslog"${params.log_type === "syslog" ? " selected" : ""}>syslog</option>
+              <option value="authlog"${params.log_type === "authlog" ? " selected" : ""}>authlog</option>
+            </select>`)}
+          ${field("host", "ホスト", `<input type="search" name="host" value="${escapeHtml(params.host)}" placeholder="elastic1">`)}
+          ${field("program", "プログラム", `<input type="search" name="program" value="${escapeHtml(params.program)}" placeholder="sshd">`)}
+          ${field("size", "表示件数", `
+            <select name="size">
+              ${[10, 25, 50, 100].map((size) => `<option value="${size}"${Number(params.size) === size ? " selected" : ""}>${size}件</option>`).join("")}
+            </select>`)}
         </div>
-        <span>時刻はJSTです</span>
-      </div>
-      <div class="filter-grid">
-        ${field("date", "対象日", `<input type="date" name="date" value="${escapeHtml(params.date)}">`)}
-        ${field("time_from", "開始時刻", `<input type="time" name="time_from" value="${escapeHtml(params.time_from)}">`)}
-        ${field("time_to", "終了時刻", `<input type="time" name="time_to" value="${escapeHtml(params.time_to)}">`)}
-        ${field("log_type", "ログ種別", `
-          <select name="log_type">
-            <option value="">すべて</option>
-            <option value="syslog"${params.log_type === "syslog" ? " selected" : ""}>syslog</option>
-            <option value="authlog"${params.log_type === "authlog" ? " selected" : ""}>authlog</option>
-          </select>`)}
-        ${field("host", "ホスト", `<input type="search" name="host" value="${escapeHtml(params.host)}" placeholder="例: elastic1">`)}
-        ${field("program", "プログラム", `<input type="search" name="program" value="${escapeHtml(params.program)}" placeholder="例: sshd">`)}
-        <label class="filter-field message-field">
-          <span>メッセージ</span>
-          <input type="search" name="message" value="${escapeHtml(params.message)}" placeholder="例: accepted, timeout">
-        </label>
-        ${field("size", "表示件数", `
-          <select name="size">
-            ${[10, 25, 50, 100].map((size) => `<option value="${size}"${Number(params.size) === size ? " selected" : ""}>${size}件</option>`).join("")}
-          </select>`)}
-      </div>
-      <div class="filter-actions">
-        <button class="button-secondary" type="reset">条件をクリア</button>
-        <button class="button-primary" type="submit">ログを検索</button>
-      </div>
+        <div class="filter-actions">
+          <button class="button-ghost" type="reset">すべての条件をクリア</button>
+        </div>
+      </details>
     </form>
   `;
 }
@@ -201,49 +240,68 @@ async function requestLogs(params) {
   return payload;
 }
 
-function renderResults(payload, params) {
-  const section = document.querySelector("#results-section");
+function renderSearchResults(payload, params) {
   const total = Number(payload.total ?? payload.count ?? currentLogs.length);
   const page = Number(payload.page || params.page || 1);
   const size = Number(payload.size || params.size || 25);
   const totalPages = Math.max(1, Number(payload.total_pages || Math.ceil(total / size)));
 
-  section.innerHTML = `
-    <div class="results-heading">
-      <div>
-        <p class="eyebrow">SEARCH RESULTS</p>
-        <h2>検索結果</h2>
-        <p>${activeFilterSummary(params)}</p>
+  app.innerHTML = `
+    <section class="search-page-header">
+      <p class="eyebrow">LOG SEARCH</p>
+      <div class="results-summary">
+        <div>
+          <h1>ログ検索</h1>
+          <p>条件はURLに保存されるため、そのまま共有できます。</p>
+        </div>
+        <strong>${total.toLocaleString("ja-JP")}<small> 件</small></strong>
       </div>
-      <div class="result-count"><strong>${total.toLocaleString()}</strong><span>件</span></div>
-    </div>
-    ${currentLogs.length ? `
+      ${searchForm(params, "advanced-search")}
+    </section>
+    <section class="section search-results">
       <div class="result-toolbar">
-        <span>${page} / ${totalPages} ページ</span>
-        <button class="button-secondary compact" type="button" data-download-csv>表示中のログをCSV保存</button>
+        <span>${page} / ${totalPages} ページ${activeFilterSummary(params) ? ` · ${activeFilterSummary(params)}` : ""}</span>
+        ${currentLogs.length ? `<button class="button-secondary compact" type="button" data-download-csv>CSVダウンロード</button>` : ""}
       </div>
-      <div class="log-list">${currentLogs.map(logCard).join("")}</div>
-      ${pagination(page, totalPages)}
-    ` : emptyState("一致するログがありませんでした", "条件を減らすか、時間範囲を広げて検索してください。")}
+      ${currentLogs.length
+        ? `<div class="result-list">${currentLogs.map((log, index) => resultCard(log, index, params.message)).join("")}</div>${pagination(page, totalPages)}`
+        : emptyState("一致するログがありません", "条件を減らすか、検索期間を広げてみてください。")}
+    </section>
   `;
 }
 
-function logCard(log, index) {
+function homeLogCard(log, index) {
   return `
-    <article class="log-card">
-      <div class="log-card-top">
+    <article class="home-log-card">
+      <div class="log-meta">
+        <time>${escapeHtml(log.display_time || log.event_time || "時刻不明")}</time>
+        ${resultFilterButton("log_type", log.log_type, log.log_type || "unknown", `log-type ${log.log_type || "unknown"}`)}
+      </div>
+      <h3>${resultFilterButton("program", log.program, log.program || "unknown program", "source-filter program-filter")}</h3>
+      <p class="host-label">${resultFilterButton("host", log.host, log.host || "unknown host", "source-filter host-filter")}</p>
+      <p class="message-preview">${escapeHtml(log.msg || "メッセージなし")}</p>
+      <button class="card-link" type="button" data-log-index="${index}">ログ詳細を見る <span>→</span></button>
+    </article>
+  `;
+}
+
+function resultCard(log, index, keyword) {
+  return `
+    <article class="result-card">
+      <div class="result-card-top">
         <div class="log-meta">
           <time>${escapeHtml(log.display_time || log.event_time || "—")}</time>
           ${resultFilterButton("log_type", log.log_type, log.log_type || "unknown", `log-type ${log.log_type || "unknown"}`)}
         </div>
-        <button class="detail-button" type="button" data-log-index="${index}">詳細</button>
+        <span class="index-name">${escapeHtml(log.index || "")}</span>
       </div>
-      <div class="log-source">
+      <div class="result-identity">
         ${resultFilterButton("host", log.host, log.host || "unknown host", "source-filter host-filter")}
         <span>/</span>
         ${resultFilterButton("program", log.program, log.program || "unknown program", "source-filter")}
       </div>
-      <p class="log-message">${highlight(log.msg || "", searchParams().message)}</p>
+      <p class="result-message">${highlight(log.msg || "", keyword)}</p>
+      <button class="card-link" type="button" data-log-index="${index}">すべてのフィールドを表示 <span>→</span></button>
     </article>
   `;
 }
@@ -383,7 +441,7 @@ function stopHealthMonitoring() {
 
 function searchParams() {
   const params = new URLSearchParams(location.search);
-  return {
+  return defaultSearchParams({
     date: params.get("date") || todayJst(),
     time_from: params.get("time_from") || "",
     time_to: params.get("time_to") || "",
@@ -393,6 +451,21 @@ function searchParams() {
     message: params.get("message") || "",
     page: positiveInt(params.get("page"), 1),
     size: Math.min(positiveInt(params.get("size"), 25), 100)
+  });
+}
+
+function defaultSearchParams(overrides = {}) {
+  return {
+    date: todayJst(),
+    time_from: "",
+    time_to: "",
+    log_type: "",
+    host: "",
+    program: "",
+    message: "",
+    page: 1,
+    size: 25,
+    ...overrides
   };
 }
 
@@ -455,7 +528,7 @@ function errorState(message) {
 }
 
 function renderError(message) {
-  app.innerHTML = `<section class="error-state page-error"><p class="eyebrow">APPLICATION ERROR</p><h1>画面を表示できませんでした</h1><p>${escapeHtml(message)}</p><a class="button-secondary" href="/" data-route>検索画面へ戻る</a></section>`;
+  app.innerHTML = `<section class="error-state page-error"><p class="eyebrow">APPLICATION ERROR</p><h1>画面を表示できませんでした</h1><p>${escapeHtml(message)}</p><a class="button-secondary" href="/" data-route>トップページへ戻る</a></section>`;
 }
 
 function downloadCsv(logs) {
