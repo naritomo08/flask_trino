@@ -174,9 +174,9 @@ async function renderHomePage() {
       <p class="eyebrow">OPERATIONAL LOG DISCOVERY</p>
       <h1>必要なログへ、<br>すばやくたどり着く。</h1>
       <p class="hero-copy">Trino / Iceberg に保存されたログを、日付・時刻・ホスト・プログラム・メッセージから横断検索できます。</p>
-      <div class="log-total" aria-label="本日のログ総量">
-        <span>本日のログ総量</span>
-        <strong><span data-home-total>${total.toLocaleString("ja-JP")}</span><small> 件</small></strong>
+      <div class="log-total" aria-label="現在のログ総量 ${total.toLocaleString("ja-JP")}件">
+        <span class="log-total-label">現在のログ総量</span>
+        <strong class="log-total-value"><span data-home-total>${total.toLocaleString("ja-JP")}</span><small>件</small></strong>
       </div>
       ${searchForm({ ...params, size: 25 }, "hero-search")}
     </section>
