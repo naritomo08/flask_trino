@@ -101,7 +101,18 @@ logDialog.addEventListener("click", (event) => {
   if (event.target === logDialog) logDialog.close();
 });
 
-initializeApp();
+if (isReloadNavigation() && location.pathname !== "/") {
+  location.replace("/");
+} else {
+  initializeApp();
+}
+
+function isReloadNavigation() {
+  const navigationEntry = performance.getEntriesByType?.("navigation")[0];
+  if (navigationEntry) return navigationEntry.type === "reload";
+
+  return performance.navigation?.type === 1;
+}
 
 async function initializeApp() {
   const availability = await Promise.all(
@@ -173,7 +184,7 @@ async function renderHomePage() {
     <section class="hero">
       <p class="eyebrow">OPERATIONAL LOG DISCOVERY</p>
       <h1>必要なログへ、<br>すばやくたどり着く。</h1>
-      <p class="hero-copy">Trino / Iceberg に保存されたログを、日付・時刻・ホスト・プログラム・メッセージから横断検索できます。</p>
+      <p class="hero-copy">Trino / Iceberg に保存されたログを、日付・時刻・ホスト・プログラム・メッセージから横断検索できます。ホストとプログラムは <code>/^web\\d+$/</code> のように入力すると正規表現で検索できます。</p>
       <div class="log-total" aria-label="現在のログ総量 ${total.toLocaleString("ja-JP")}件">
         <span class="log-total-label">現在のログ総量</span>
         <strong class="log-total-value"><span data-home-total>${total.toLocaleString("ja-JP")}</span><small>件</small></strong>
@@ -272,8 +283,8 @@ function searchForm(params, className = "") {
               <option value="syslog"${params.log_type === "syslog" ? " selected" : ""}>syslog</option>
               <option value="authlog"${params.log_type === "authlog" ? " selected" : ""}>authlog</option>
             </select>`)}
-          ${field("host", "ホスト", `<input type="search" name="host" value="${escapeHtml(params.host)}" placeholder="elastic1">`)}
-          ${field("program", "プログラム", `<input type="search" name="program" value="${escapeHtml(params.program)}" placeholder="sshd">`)}
+          ${field("host", "ホスト", `<input type="search" name="host" value="${escapeHtml(params.host)}" placeholder="elastic1 または /^web\\d+$/">`)}
+          ${field("program", "プログラム", `<input type="search" name="program" value="${escapeHtml(params.program)}" placeholder="sshd または /^ssh.*/">`)}
           ${field("size", "表示件数", `
             <select name="size">
               ${[10, 25, 50, 100].map((size) => `<option value="${size}"${Number(params.size) === size ? " selected" : ""}>${size}件</option>`).join("")}

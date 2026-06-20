@@ -225,8 +225,8 @@ class LogSearchApp < Sinatra::Base
       "#{timestamp_sql} >= TIMESTAMP #{sql_string(time_bound(filters["time_from"], "from", date))}",
       "#{timestamp_sql} <= TIMESTAMP #{sql_string(time_bound(filters["time_to"], "to", date))}"
     ]
-    conditions << equals_condition("host", filters["host"]) unless filters["host"].empty?
-    conditions << equals_condition("program", filters["program"]) unless filters["program"].empty?
+    conditions << match_condition("host", filters["host"]) unless filters["host"].empty?
+    conditions << match_condition("program", filters["program"]) unless filters["program"].empty?
     conditions << like_condition("message", filters["message"]) unless filters["message"].empty?
 
     <<~SQL.chomp
@@ -243,6 +243,14 @@ class LogSearchApp < Sinatra::Base
 
   def equals_condition(field, value)
     "lower(CAST(#{quoted_identifier(field)} AS varchar)) = lower(#{sql_string(value)})"
+  end
+
+  def match_condition(field, value)
+    if value.length >= 2 && value.start_with?("/") && value.end_with?("/")
+      "regexp_like(CAST(#{quoted_identifier(field)} AS varchar), #{sql_string("(?i)#{value[1...-1]}")})"
+    else
+      equals_condition(field, value)
+    end
   end
 
   def like_condition(field, value)

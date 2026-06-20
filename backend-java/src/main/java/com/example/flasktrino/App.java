@@ -185,10 +185,10 @@ public class App {
         conditions.add(timestampSql + " >= TIMESTAMP " + sqlString(timeBound(filters.timeFrom, "from", clock, filters.date)));
         conditions.add(timestampSql + " <= TIMESTAMP " + sqlString(timeBound(filters.timeTo, "to", clock, filters.date)));
         if (!filters.host.isBlank()) {
-            conditions.add(equalsCondition("host", filters.host));
+            conditions.add(matchCondition("host", filters.host));
         }
         if (!filters.program.isBlank()) {
-            conditions.add(equalsCondition("program", filters.program));
+            conditions.add(matchCondition("program", filters.program));
         }
         if (!filters.message.isBlank()) {
             conditions.add(likeCondition("message", filters.message));
@@ -283,6 +283,16 @@ public class App {
 
     static String equalsCondition(String field, String value) {
         return "lower(CAST(%s AS varchar)) = lower(%s)".formatted(quotedIdentifier(field), sqlString(value));
+    }
+
+    static String matchCondition(String field, String value) {
+        if (value.length() >= 2 && value.startsWith("/") && value.endsWith("/")) {
+            return "regexp_like(CAST(%s AS varchar), %s)".formatted(
+                    quotedIdentifier(field),
+                    sqlString("(?i)" + value.substring(1, value.length() - 1))
+            );
+        }
+        return equalsCondition(field, value);
     }
 
     static String likeCondition(String field, String value) {

@@ -119,6 +119,14 @@ function equals_condition(string $field, string $value): string
     return 'lower(CAST(' . quoted_identifier($field) . ' AS varchar)) = lower(' . sql_string($value) . ')';
 }
 
+function match_condition(string $field, string $value): string
+{
+    if (strlen($value) >= 2 && str_starts_with($value, '/') && str_ends_with($value, '/')) {
+        return 'regexp_like(CAST(' . quoted_identifier($field) . ' AS varchar), ' . sql_string('(?i)' . substr($value, 1, -1)) . ')';
+    }
+    return equals_condition($field, $value);
+}
+
 function like_condition(string $field, string $value): string
 {
     return 'lower(CAST(' . quoted_identifier($field) . ' AS varchar)) LIKE lower(' . sql_string('%' . escape_like($value) . '%') . ") ESCAPE '!'";
@@ -139,10 +147,10 @@ function select_for_log_type(string $logType, array $filters, array $config): st
     ];
 
     if ($filters['host'] !== '') {
-        $conditions[] = equals_condition('host', $filters['host']);
+        $conditions[] = match_condition('host', $filters['host']);
     }
     if ($filters['program'] !== '') {
-        $conditions[] = equals_condition('program', $filters['program']);
+        $conditions[] = match_condition('program', $filters['program']);
     }
     if ($filters['message'] !== '') {
         $conditions[] = like_condition('message', $filters['message']);

@@ -132,8 +132,8 @@ defmodule ElixirElastic.TrinoSearch do
         "#{timestamp_sql} >= TIMESTAMP #{sql_string(from)}",
         "#{timestamp_sql} <= TIMESTAMP #{sql_string(to)}"
       ]
-      |> append_equals(filters["host"], "host")
-      |> append_equals(filters["program"], "program")
+      |> append_match(filters["host"], "host")
+      |> append_match(filters["program"], "program")
       |> append_like(filters["message"], "message")
 
     """
@@ -257,6 +257,23 @@ defmodule ElixirElastic.TrinoSearch do
       [
         "lower(CAST(#{quoted_identifier(field)} AS varchar)) = lower(#{sql_string(value)})"
       ]
+  end
+
+  defp append_match(conditions, nil, _field), do: conditions
+  defp append_match(conditions, "", _field), do: conditions
+
+  defp append_match(conditions, value, field) do
+    if String.length(value) >= 2 && String.starts_with?(value, "/") &&
+         String.ends_with?(value, "/") do
+      pattern = String.slice(value, 1, String.length(value) - 2)
+
+      conditions ++
+        [
+          "regexp_like(CAST(#{quoted_identifier(field)} AS varchar), #{sql_string("(?i)#{pattern}")})"
+        ]
+    else
+      append_equals(conditions, value, field)
+    end
   end
 
   defp target_log_types(%{"log_type" => log_type}) when log_type in @log_types, do: [log_type]

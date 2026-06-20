@@ -219,9 +219,9 @@ def select_for_log_type(log_type, filters):
     ]
 
     if filters["host"]:
-        conditions.append(equals_condition("host", filters["host"]))
+        conditions.append(match_condition("host", filters["host"]))
     if filters["program"]:
-        conditions.append(equals_condition("program", filters["program"]))
+        conditions.append(match_condition("program", filters["program"]))
     if filters["message"]:
         conditions.append(like_condition("message", filters["message"]))
 
@@ -237,6 +237,12 @@ WHERE {" AND ".join(conditions)}"""
 
 def equals_condition(field, value):
     return f"lower(CAST({quoted_identifier(field)} AS varchar)) = lower({sql_string(value)})"
+
+
+def match_condition(field, value):
+    if len(value) >= 2 and value.startswith("/") and value.endswith("/"):
+        return f"regexp_like(CAST({quoted_identifier(field)} AS varchar), {sql_string('(?i)' + value[1:-1])})"
+    return equals_condition(field, value)
 
 
 def like_condition(field, value):

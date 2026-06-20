@@ -443,10 +443,10 @@ func selectForLogType(logType string, filters Filters) string {
 	}
 
 	if filters.Host != "" {
-		conditions = append(conditions, equalsCondition("host", filters.Host))
+		conditions = append(conditions, matchCondition("host", filters.Host))
 	}
 	if filters.Program != "" {
-		conditions = append(conditions, equalsCondition("program", filters.Program))
+		conditions = append(conditions, matchCondition("program", filters.Program))
 	}
 	if filters.Message != "" {
 		conditions = append(conditions, likeCondition("message", filters.Message))
@@ -464,6 +464,13 @@ WHERE %s`, timestampSQL, quotedIdentifier("host"), quotedIdentifier("program"), 
 
 func equalsCondition(field, value string) string {
 	return fmt.Sprintf("lower(CAST(%s AS varchar)) = lower(%s)", quotedIdentifier(field), sqlString(value))
+}
+
+func matchCondition(field, value string) string {
+	if len(value) >= 2 && strings.HasPrefix(value, "/") && strings.HasSuffix(value, "/") {
+		return fmt.Sprintf("regexp_like(CAST(%s AS varchar), %s)", quotedIdentifier(field), sqlString("(?i)"+value[1:len(value)-1]))
+	}
+	return equalsCondition(field, value)
 }
 
 func likeCondition(field, value string) string {
