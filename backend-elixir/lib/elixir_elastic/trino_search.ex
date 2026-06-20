@@ -362,7 +362,6 @@ defmodule ElixirElastic.TrinoSearch do
   defp trino_password, do: Application.fetch_env!(:elixir_elastic, :trino_password)
   defp trino_catalog, do: Application.fetch_env!(:elixir_elastic, :trino_catalog)
   defp trino_schema, do: Application.fetch_env!(:elixir_elastic, :trino_schema)
-  defp trino_limit, do: Application.fetch_env!(:elixir_elastic, :trino_limit)
   defp syslog_table, do: Application.fetch_env!(:elixir_elastic, :syslog_table)
   defp authlog_table, do: Application.fetch_env!(:elixir_elastic, :authlog_table)
   defp timestamp_column, do: Application.fetch_env!(:elixir_elastic, :timestamp_column)

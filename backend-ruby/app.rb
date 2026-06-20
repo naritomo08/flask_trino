@@ -91,7 +91,6 @@ class LogSearchApp < Sinatra::Base
   TRINO_AUTHLOG_TABLE = ENV.fetch("TRINO_AUTHLOG_TABLE", "authlog_events")
   TRINO_TIMESTAMP_COLUMN = ENV.fetch("TRINO_TIMESTAMP_COLUMN", "ts")
   TRINO_TIMESTAMP_EXPRESSION = ENV.fetch("TRINO_TIMESTAMP_EXPRESSION", "")
-  DEFAULT_LIMIT = Integer(ENV.fetch("TRINO_LIMIT", "50"))
   LOG_TYPES = %w[syslog authlog].freeze
   JST_OFFSET = "+09:00"
 

@@ -15,7 +15,6 @@ TRINO_SYSLOG_TABLE = os.getenv("TRINO_SYSLOG_TABLE", "syslog_events")
 TRINO_AUTHLOG_TABLE = os.getenv("TRINO_AUTHLOG_TABLE", "authlog_events")
 TRINO_TIMESTAMP_COLUMN = os.getenv("TRINO_TIMESTAMP_COLUMN", "ts")
 TRINO_TIMESTAMP_EXPRESSION = os.getenv("TRINO_TIMESTAMP_EXPRESSION", "")
-DEFAULT_LIMIT = int(os.getenv("TRINO_LIMIT", "50"))
 LOG_TYPES = ["syslog", "authlog"]
 JST = timezone(timedelta(hours=9), "JST")
 
@@ -201,7 +200,7 @@ def union_query(filters):
 
 
 def build_query(filters):
-    size = min(positive_int(filters.get("size"), DEFAULT_LIMIT), 100)
+    size = min(positive_int(filters.get("size"), 25), 100)
     page = positive_int(filters.get("page"), 1)
     offset = (page - 1) * size
     return f"SELECT logs.*, count(*) OVER() AS total_count FROM (\n{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET {offset}\nLIMIT {size}"
@@ -309,7 +308,7 @@ def search_logs(client, filters):
     query = build_query(filters)
     rows, columns = client.execute(query)
     page = positive_int(filters.get("page"), 1)
-    size = min(positive_int(filters.get("size"), DEFAULT_LIMIT), 100)
+    size = min(positive_int(filters.get("size"), 25), 100)
     return rows_to_logs(rows, columns, (page - 1) * size)
 
 

@@ -17,6 +17,5 @@ function app_config(): array
         'trino_authlog_table' => getenv('TRINO_AUTHLOG_TABLE') ?: 'authlog_events',
         'trino_timestamp_column' => getenv('TRINO_TIMESTAMP_COLUMN') ?: 'ts',
         'trino_timestamp_expression' => getenv('TRINO_TIMESTAMP_EXPRESSION') ?: '',
-        'default_limit' => (int) (getenv('TRINO_LIMIT') ?: '50'),
     ];
 }

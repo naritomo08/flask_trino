@@ -462,8 +462,7 @@ public class App {
             String trinoSyslogTable,
             String trinoAuthlogTable,
             String trinoTimestampColumn,
-            String trinoTimestampExpression,
-            int trinoLimit
+            String trinoTimestampExpression
     ) {
         static Config fromEnv() {
             return new Config(
@@ -476,8 +475,7 @@ public class App {
                     getenv("TRINO_SYSLOG_TABLE", "syslog_events"),
                     getenv("TRINO_AUTHLOG_TABLE", "authlog_events"),
                     getenv("TRINO_TIMESTAMP_COLUMN", "ts"),
-                    System.getenv().getOrDefault("TRINO_TIMESTAMP_EXPRESSION", ""),
-                    getenvInt("TRINO_LIMIT", 50)
+                    System.getenv().getOrDefault("TRINO_TIMESTAMP_EXPRESSION", "")
             );
         }
     }
@@ -609,11 +607,4 @@ public class App {
         return value == null || value.isBlank() ? fallback : value;
     }
 
-    static int getenvInt(String key, int fallback) {
-        try {
-            return Integer.parseInt(System.getenv().getOrDefault(key, ""));
-        } catch (NumberFormatException ex) {
-            return fallback;
-        }
-    }
 }

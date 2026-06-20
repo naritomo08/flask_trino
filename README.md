@@ -7,6 +7,7 @@ Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テ�
 ## 起動
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -14,17 +15,11 @@ docker compose up --build
 
 フロントエンドの CSS / JavaScript は Docker イメージのビルド時に内容ハッシュ付きのファイル名へ変換され、HTML の参照先も自動更新されます。ファイル名やキャッシュ更新用のクエリ文字列を HTML に手動で反映する必要はありません。
 
-フロントエンドの外向けポートは `8081` です。バックエンドの外向けポートは `5011` から順に割り当てています。
+外向けに公開するポートはフロントエンドの `8081` だけです。各バックエンドは Compose の内部ネットワークからのみ接続でき、Nginx 経由で利用します。
 
 | Service | URL |
 | --- | --- |
 | frontend | http://localhost:8081 |
-| Python / Flask | http://localhost:5011 |
-| Go | http://localhost:5012 |
-| Java | http://localhost:5013 |
-| PHP | http://localhost:5014 |
-| Ruby | http://localhost:5015 |
-| Elixir | http://localhost:5016 |
 
 フロントエンド画面の Backend セレクトで検索に使うバックエンドを切り替えられます。疎通確認は http://localhost:8081/health です。
 
@@ -32,7 +27,13 @@ docker compose up --build
 
 Trino / Iceberg / ログ収集基盤はこの Compose には含めません。デフォルトでは `trino1:8080` の Trino に接続します。
 
-`docker-compose.yml` の `extra_hosts` で `trino1` を `192.168.11.18` に向けています。環境に合わせて変更してください。
+初回起動前にサンプルをコピーし、環境に合わせて `.env` を編集してください。設定を省略した場合もサンプルと同じ既定値で動作します。
+
+```bash
+cp .env.example .env
+```
+
+`TRINO_HOST_ALIAS` と `TRINO_HOST_IP` は Compose の `extra_hosts` に使われます。`TRINO_URL` のホスト名を変更する場合は、`TRINO_HOST_ALIAS` も同じ名前にしてください。
 
 ## 前提テーブル
 
@@ -84,24 +85,15 @@ curl -X POST http://localhost:8081/api/flask/logs \
 
 レスポンスには `total`、`page`、`size`、`total_pages`、`logs` が含まれます。
 
-各バックエンドへ直接アクセスする場合:
-
-```bash
-curl -X POST http://localhost:5011/api/logs \
-  -H "Content-Type: application/json" \
-  -d '{"message":"timeout"}'
-```
-
 ヘルスチェック:
 
 ```bash
 curl http://localhost:8081/health/flask
-curl http://localhost:5011/health
 ```
 
 ## 設定
 
-`docker-compose.yml` の環境変数で接続先やテーブル名を変更できます。
+`.env` の環境変数で接続先やテーブル名を変更できます。利用できる変数と既定値は `.env.example` にあります。
 
 - `TRINO_URL`: Trino coordinator の URL
 - `TRINO_USER`: Trino に渡すユーザー名
@@ -112,13 +104,14 @@ curl http://localhost:5011/health
 - `TRINO_AUTHLOG_TABLE`: authlog 検索対象テーブル
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
-- `TRINO_LIMIT`: 旧クライアント向けのデフォルト最大取得件数
+- `TRINO_HOST_ALIAS`: `extra_hosts` に登録する Trino のホスト名
+- `TRINO_HOST_IP`: `extra_hosts` に登録する Trino のIPアドレス
+
 時刻カラムが文字列などでそのまま比較できない場合は、`TRINO_TIMESTAMP_EXPRESSION` に Trino の SQL 式を設定できます。
 
-```yaml
-environment:
-  TRINO_TIMESTAMP_COLUMN: ts
-  TRINO_TIMESTAMP_EXPRESSION: CAST("ts" AS timestamp)
+```dotenv
+TRINO_TIMESTAMP_COLUMN=ts
+TRINO_TIMESTAMP_EXPRESSION=CAST("ts" AS timestamp)
 ```
 
 ## テスト

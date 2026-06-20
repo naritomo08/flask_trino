@@ -37,6 +37,7 @@ vendor/bundle/
 # Local environment
 .env
 .env.*
+!.env.example
 instance/
 
 # Test / coverage output

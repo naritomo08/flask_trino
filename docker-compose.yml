@@ -1,16 +1,16 @@
 x-trino-env: &trino-env
-  TRINO_URL: http://trino1:8080
-  TRINO_USER: log_search
-  TRINO_CATALOG: iceberg
-  TRINO_SCHEMA: logs
-  TRINO_SYSLOG_TABLE: syslog_events
-  TRINO_AUTHLOG_TABLE: authlog_events
-  TRINO_TIMESTAMP_COLUMN: ts
-  TRINO_TIMESTAMP_EXPRESSION: ""
-  TRINO_LIMIT: 50
+  TRINO_URL: ${TRINO_URL:-http://trino1:8080}
+  TRINO_USER: ${TRINO_USER:-log_search}
+  TRINO_PASSWORD: ${TRINO_PASSWORD:-}
+  TRINO_CATALOG: ${TRINO_CATALOG:-iceberg}
+  TRINO_SCHEMA: ${TRINO_SCHEMA:-logs}
+  TRINO_SYSLOG_TABLE: ${TRINO_SYSLOG_TABLE:-syslog_events}
+  TRINO_AUTHLOG_TABLE: ${TRINO_AUTHLOG_TABLE:-authlog_events}
+  TRINO_TIMESTAMP_COLUMN: ${TRINO_TIMESTAMP_COLUMN:-ts}
+  TRINO_TIMESTAMP_EXPRESSION: ${TRINO_TIMESTAMP_EXPRESSION:-}
 
 x-trino-hosts: &trino-hosts
-  - "trino1:192.168.11.18"
+  - "${TRINO_HOST_ALIAS:-trino1}:${TRINO_HOST_IP:-192.168.11.18}"
 
 services:
   frontend:
@@ -28,8 +28,6 @@ services:
 
   backend-python:
     build: ./backend-python
-    ports:
-      - "5011:5000"
     restart: unless-stopped
     environment:
       <<: *trino-env
@@ -37,8 +35,6 @@ services:
 
   backend-go:
     build: ./backend-go
-    ports:
-      - "5012:5000"
     restart: unless-stopped
     environment:
       <<: *trino-env
@@ -46,8 +42,6 @@ services:
 
   backend-java:
     build: ./backend-java
-    ports:
-      - "5013:5000"
     restart: unless-stopped
     environment:
       <<: *trino-env
@@ -55,8 +49,6 @@ services:
 
   backend-php:
     build: ./backend-php
-    ports:
-      - "5014:5000"
     restart: unless-stopped
     environment:
       <<: *trino-env
@@ -64,8 +56,6 @@ services:
 
   backend-ruby:
     build: ./backend-ruby
-    ports:
-      - "5015:5000"
     restart: unless-stopped
     environment:
       <<: *trino-env
@@ -73,8 +63,6 @@ services:
 
   backend-elixir:
     build: ./backend-elixir
-    ports:
-      - "5016:5000"
     restart: unless-stopped
     environment:
       <<: *trino-env

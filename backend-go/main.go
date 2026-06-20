@@ -26,7 +26,6 @@ var (
 	trinoAuthlogTable        = getenv("TRINO_AUTHLOG_TABLE", "authlog_events")
 	trinoTimestampColumn     = getenv("TRINO_TIMESTAMP_COLUMN", "ts")
 	trinoTimestampExpression = getenv("TRINO_TIMESTAMP_EXPRESSION", "")
-	defaultLimit             = getenvInt("TRINO_LIMIT", 50)
 	jst                      = time.FixedZone("JST", 9*60*60)
 	logTypes                 = []string{"syslog", "authlog"}
 )
@@ -660,16 +659,4 @@ func getenv(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func getenvInt(key string, fallback int) int {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return fallback
-	}
-	return parsed
 }
