@@ -47,6 +47,16 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const filterButton = event.target.closest("[data-result-filter]");
+  if (filterButton) {
+    const params = new URLSearchParams(location.search);
+    params.set(filterButton.dataset.resultFilter, filterButton.dataset.filterValue);
+    params.set("page", "1");
+    history.pushState({}, "", `/?${params}`);
+    await renderSearchPage();
+    return;
+  }
+
   const detailButton = event.target.closest("[data-log-index]");
   if (detailButton) {
     showLogDetail(currentLogs[Number(detailButton.dataset.logIndex)]);
@@ -224,17 +234,31 @@ function logCard(log, index) {
       <div class="log-card-top">
         <div class="log-meta">
           <time>${escapeHtml(log.display_time || log.event_time || "—")}</time>
-          <span class="log-type ${escapeHtml(log.log_type || "unknown")}">${escapeHtml(log.log_type || "unknown")}</span>
+          ${resultFilterButton("log_type", log.log_type, log.log_type || "unknown", `log-type ${log.log_type || "unknown"}`)}
         </div>
         <button class="detail-button" type="button" data-log-index="${index}">詳細</button>
       </div>
       <div class="log-source">
-        <strong>${escapeHtml(log.host || "unknown host")}</strong>
+        ${resultFilterButton("host", log.host, log.host || "unknown host", "source-filter host-filter")}
         <span>/</span>
-        <span>${escapeHtml(log.program || "unknown program")}</span>
+        ${resultFilterButton("program", log.program, log.program || "unknown program", "source-filter")}
       </div>
       <p class="log-message">${highlight(log.msg || "", searchParams().message)}</p>
     </article>
+  `;
+}
+
+function resultFilterButton(key, value, label, className) {
+  if (!value) return `<span class="${escapeHtml(className)}">${escapeHtml(label)}</span>`;
+  return `
+    <button
+      class="${escapeHtml(className)}"
+      type="button"
+      data-result-filter="${escapeHtml(key)}"
+      data-filter-value="${escapeHtml(value)}"
+      title="${escapeHtml(label)}で絞り込む"
+      aria-label="${escapeHtml(label)}で絞り込む"
+    >${escapeHtml(label)}</button>
   `;
 }
 

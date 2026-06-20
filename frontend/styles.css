@@ -107,13 +107,22 @@ a { color: inherit; text-decoration: none; }
 .log-card-top, .log-meta, .log-source { display: flex; align-items: center; }
 .log-card-top { justify-content: space-between; gap: 16px; }
 .log-meta { flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: .77rem; font-weight: 750; }
-.log-type { display: inline-flex; padding: 3px 9px; border-radius: 999px; color: #fff; font-size: .68rem; font-weight: 900; }
+.log-type {
+  display: inline-flex; border: 0; padding: 3px 9px; border-radius: 999px;
+  color: #fff; font-size: .68rem; font-weight: 900;
+}
+button.log-type, .source-filter { cursor: pointer; }
+button.log-type:hover, button.log-type:focus-visible { box-shadow: 0 0 0 3px rgba(23, 107, 135, .18); }
 .log-type.syslog { background: #506579; }
 .log-type.authlog { background: #9a5c1a; }
 .log-type.unknown { background: #748087; }
 .detail-button { border: 1px solid var(--line); padding: 6px 11px; color: var(--accent-dark); background: #fff; font-size: .75rem; }
 .log-source { gap: 8px; margin-top: 11px; color: var(--muted); font-size: .84rem; }
-.log-source strong { color: var(--text); }
+.source-filter {
+  border: 0; border-radius: 4px; padding: 0 2px; color: inherit; background: transparent;
+}
+.source-filter:hover, .source-filter:focus-visible { color: var(--accent-dark); background: var(--accent-soft); }
+.source-filter.host-filter { color: var(--text); font-weight: 800; }
 .log-message { margin: 9px 0 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .87rem; line-height: 1.65; }
 mark { padding: 1px 3px; border-radius: 3px; color: inherit; background: #fff19a; }
 
