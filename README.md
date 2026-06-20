@@ -8,7 +8,7 @@ Trino から参照できる Iceberg の `syslog_events` / `authlog_events` テ�
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up -d --build
 ```
 
 ブラウザで http://localhost:8081 を開きます。
