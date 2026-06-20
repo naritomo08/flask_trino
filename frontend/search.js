@@ -15,6 +15,8 @@ const logDetail = document.querySelector("#log-detail");
 let selectedBackend = localStorage.getItem("trino-log-search-backend");
 let healthTimer;
 let healthRequestId = 0;
+let homeTimer;
+let homeRequestId = 0;
 let currentLogs = [];
 
 if (!BACKENDS[selectedBackend]) selectedBackend = "elixir";
@@ -123,12 +125,14 @@ async function renderRoute() {
 
 async function renderHomePage() {
   stopHealthMonitoring();
+  const requestId = ++homeRequestId;
   const params = defaultSearchParams({ size: 6 });
   document.title = "Trino Log Search";
   apiLink.href = apiUrl("logs", params);
   app.innerHTML = `<div class="loading-state">ログを読み込んでいます…</div>`;
 
   const payload = await requestLogs(params);
+  if (requestId !== homeRequestId || location.pathname !== "/") return;
   currentLogs = payload.logs || [];
   const total = Number(payload.total ?? payload.count ?? currentLogs.length);
 
@@ -139,7 +143,7 @@ async function renderHomePage() {
       <p class="hero-copy">Trino / Iceberg に保存されたログを、日付・時刻・ホスト・プログラム・メッセージから横断検索できます。</p>
       <div class="log-total" aria-label="本日のログ総量">
         <span>本日のログ総量</span>
-        <strong>${total.toLocaleString("ja-JP")}<small> 件</small></strong>
+        <strong><span data-home-total>${total.toLocaleString("ja-JP")}</span><small> 件</small></strong>
       </div>
       ${searchForm({ ...params, size: 25 }, "hero-search")}
     </section>
@@ -151,11 +155,37 @@ async function renderHomePage() {
         </div>
         <a class="text-link" href="/search" data-route>すべて表示 →</a>
       </div>
-      ${currentLogs.length
-        ? `<div class="log-grid">${currentLogs.map(homeLogCard).join("")}</div>`
-        : emptyState("ログがありません", "対象日のログがまだ登録されていません。")}
+      <div data-home-logs>
+        ${homeLogsMarkup(currentLogs)}
+      </div>
     </section>
   `;
+  homeTimer = window.setInterval(updateHomeLogs, 5000);
+}
+
+async function updateHomeLogs() {
+  if (location.pathname !== "/") return;
+  const requestId = ++homeRequestId;
+
+  try {
+    const payload = await requestLogs(defaultSearchParams({ size: 6 }));
+    if (requestId !== homeRequestId || location.pathname !== "/") return;
+
+    currentLogs = payload.logs || [];
+    const total = Number(payload.total ?? payload.count ?? currentLogs.length);
+    const totalElement = document.querySelector("[data-home-total]");
+    const logsElement = document.querySelector("[data-home-logs]");
+    if (totalElement) totalElement.textContent = total.toLocaleString("ja-JP");
+    if (logsElement) logsElement.innerHTML = homeLogsMarkup(currentLogs);
+  } catch {
+    // 初期表示済みの内容を残し、次回の自動更新で再試行します。
+  }
+}
+
+function homeLogsMarkup(logs) {
+  return logs.length
+    ? `<div class="log-grid">${logs.map(homeLogCard).join("")}</div>`
+    : emptyState("ログがありません", "対象日のログがまだ登録されていません。");
 }
 
 async function renderSearchPage() {
@@ -437,6 +467,9 @@ function stopHealthMonitoring() {
   window.clearInterval(healthTimer);
   healthTimer = undefined;
   healthRequestId += 1;
+  window.clearInterval(homeTimer);
+  homeTimer = undefined;
+  homeRequestId += 1;
 }
 
 function searchParams() {
