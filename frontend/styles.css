@@ -48,13 +48,12 @@ a { color: inherit; text-decoration: none; }
 .brand small { margin-top: -4px; color: var(--muted); font-size: .72rem; letter-spacing: .04em; }
 .header-nav { display: flex; align-items: center; gap: 8px; }
 .backend-selector { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .72rem; font-weight: 800; }
-.backend-selector select, .api-link {
+.backend-selector select {
   min-height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text);
 }
 .backend-selector select { padding: 6px 28px 6px 10px; cursor: pointer; }
 .nav-link { padding: 8px 11px; color: var(--muted); font-size: .85rem; font-weight: 800; }
 .nav-link:hover { color: var(--accent-dark); }
-.api-link { padding: 7px 13px; color: var(--muted); font-size: .82rem; font-weight: 800; }
 
 .hero { padding: 82px 0 70px; text-align: center; }
 .eyebrow { margin: 0 0 9px; color: var(--accent-dark); font-size: .72rem; font-weight: 900; letter-spacing: .18em; }
@@ -265,7 +264,7 @@ mark { padding: 1px 3px; border-radius: 3px; color: inherit; background: #fff19a
   .header-inner { min-height: 68px; gap: 8px; }
   .brand { min-width: 0; }
   .brand strong { font-size: .88rem; }
-  .brand small, .api-link, .nav-link { display: none; }
+  .brand small, .nav-link { display: none; }
   .backend-selector > span { display: none; }
   .backend-selector select { width: 104px; max-width: 104px; }
   .header-nav { min-width: 0; }

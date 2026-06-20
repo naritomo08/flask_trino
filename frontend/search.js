@@ -8,7 +8,6 @@ const BACKENDS = {
 };
 
 const app = document.querySelector("#app");
-const apiLink = document.querySelector("#api-link");
 const backendSelect = document.querySelector("#backend-select");
 const logDialog = document.querySelector("#log-dialog");
 const logDetail = document.querySelector("#log-detail");
@@ -18,9 +17,6 @@ let healthRequestId = 0;
 let homeTimer;
 let homeRequestId = 0;
 let currentLogs = [];
-
-if (!BACKENDS[selectedBackend]) selectedBackend = "elixir";
-backendSelect.value = selectedBackend;
 
 backendSelect.addEventListener("change", async () => {
   selectedBackend = backendSelect.value;
@@ -105,7 +101,43 @@ logDialog.addEventListener("click", (event) => {
   if (event.target === logDialog) logDialog.close();
 });
 
-renderRoute();
+initializeApp();
+
+async function initializeApp() {
+  const availability = await Promise.all(
+    Object.keys(BACKENDS).map(async (key) => [key, await backendIsAvailable(key)])
+  );
+  const availableBackends = availability
+    .filter(([, available]) => available)
+    .map(([key]) => key);
+
+  backendSelect.replaceChildren();
+  if (!availableBackends.length) {
+    const option = new Option("利用可能なBackendなし", "");
+    backendSelect.add(option);
+    backendSelect.disabled = true;
+    selectedBackend = null;
+  } else {
+    availableBackends.forEach((key) => backendSelect.add(new Option(BACKENDS[key].label, key)));
+    selectedBackend = availableBackends.includes(selectedBackend)
+      ? selectedBackend
+      : availableBackends.includes("elixir") ? "elixir" : availableBackends[0];
+    backendSelect.value = selectedBackend;
+    localStorage.setItem("trino-log-search-backend", selectedBackend);
+  }
+
+  await renderRoute();
+}
+
+async function backendIsAvailable(key) {
+  try {
+    const response = await fetch(`/health/${key}`, { cache: "no-store" });
+    const payload = await readJson(response);
+    return response.ok && typeof payload.ok === "boolean";
+  } catch {
+    return false;
+  }
+}
 
 async function renderRoute() {
   stopHealthMonitoring();
@@ -113,6 +145,8 @@ async function renderRoute() {
   try {
     if (location.pathname === "/health") {
       await renderHealthPage();
+    } else if (!selectedBackend) {
+      renderError("利用可能なバックエンドがありません。稼働状況を確認してください。");
     } else if (location.pathname === "/search") {
       await renderSearchPage();
     } else {
@@ -128,7 +162,6 @@ async function renderHomePage() {
   const requestId = ++homeRequestId;
   const params = defaultSearchParams({ size: 6 });
   document.title = "Trino Log Search";
-  apiLink.href = apiUrl("logs", params);
   app.innerHTML = `<div class="loading-state">ログを読み込んでいます…</div>`;
 
   const payload = await requestLogs(params);
@@ -192,7 +225,6 @@ async function renderSearchPage() {
   stopHealthMonitoring();
   const params = searchParams();
   document.title = "ログ検索 | Trino Log Search";
-  apiLink.href = apiUrl("logs", params);
   app.innerHTML = `<div class="loading-state">ログを検索しています…</div>`;
 
   try {
@@ -382,7 +414,6 @@ function detailRow(label, value, wide = false) {
 
 async function renderHealthPage() {
   document.title = "稼働状況 | Trino Log Search";
-  apiLink.href = apiPath("health");
   app.innerHTML = `
     <section class="health-page">
       <div class="page-heading">
@@ -522,14 +553,6 @@ function todayJst() {
 
 function apiPath(endpoint) {
   return endpoint === "health" ? `/health/${selectedBackend}` : `/api/${selectedBackend}/${endpoint}`;
-}
-
-function apiUrl(endpoint, params) {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== "") query.set(key, value);
-  });
-  return `${apiPath(endpoint)}?${query}`;
 }
 
 async function readJson(response) {
