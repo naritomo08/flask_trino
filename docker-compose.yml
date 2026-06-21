@@ -24,11 +24,6 @@ services:
       - backend-php
       - backend-ruby
       - backend-elixir
-    logging:
-      driver: syslog
-      options:
-        syslog-address: "tcp://127.0.0.1:514"
-        tag: "nginx-access"
     restart: unless-stopped
 
   backend-python:
