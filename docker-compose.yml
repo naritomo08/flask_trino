@@ -15,6 +15,7 @@ x-trino-hosts: &trino-hosts
 services:
   frontend:
     build: ./frontend
+    container_name: trino-search-frontend
     ports:
       - "8081:80"
     depends_on:
@@ -24,6 +25,11 @@ services:
       - backend-php
       - backend-ruby
       - backend-elixir
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://127.0.0.1:514"
+        tag: "{{.Name}}"
     restart: unless-stopped
 
   backend-python:
