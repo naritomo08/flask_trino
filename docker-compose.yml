@@ -28,7 +28,7 @@ services:
       driver: syslog
       options:
         syslog-address: "tcp://127.0.0.1:514"
-        tag: "nginx"
+        tag: "nginx-access"
     restart: unless-stopped
 
   backend-python:
