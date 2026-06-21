@@ -10,14 +10,16 @@ backend-java/
 ├── Readme.md
 ├── pom.xml
 └── src/main/java/com/example/flasktrino/
-    └── App.java
+    ├── App.java
+    └── TrinoClient.java
 ```
 
 - `Dockerfile`: MavenビルドとJRE実行イメージ
 - `pom.xml`: Java 21、Jackson、JUnit、Shade Pluginの設定
-- `App.java`: HTTPルート、設定、Trino通信、SQL生成、結果整形
+- `App.java`: HTTPルート、設定、SQL生成、結果整形
+- `TrinoClient.java`: Trino REST API通信
 
-`App.java` を分割する場合は `HttpHandlers`、`TrinoClient`、`QueryBuilder`、`Models` が自然な境界です。現状は他言語実装との対応を追いやすい単一ファイル構成です。
+独立性の高いTrino通信を別クラスへ分離しています。今後さらに分ける場合は `HttpHandlers`、`QueryBuilder`、`Models` が自然な境界です。
 
 ## API
 

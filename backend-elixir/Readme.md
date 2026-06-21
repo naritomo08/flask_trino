@@ -14,16 +14,20 @@ backend-elixir/
 │   └── runtime.exs
 └── lib/elixir_elastic/
     ├── application.ex
+    ├── query_builder.ex
     ├── router.ex
+    ├── trino_client.ex
     └── trino_search.ex
 ```
 
 - `runtime.exs`: `TRINO_*` と `PORT` の実行時設定
 - `application.ex`: SupervisorとCowboyの起動
 - `router.ex`: APIルート、入力正規化、JSONレスポンス
-- `trino_search.ex`: Trino通信、SQL生成、結果整形
+- `query_builder.ex`: SQL生成と検索時刻の正規化
+- `trino_client.ex`: Trino REST API通信
+- `trino_search.ex`: 検索実行と結果整形
 
-HTTP層とTrino検索層は分離済みです。さらに分ける場合は `trino_search.ex` のHTTPクライアント部分とSQLビルダー部分が候補です。
+HTTP層、Trino通信、SQL生成、検索結果整形をそれぞれ分離しています。
 
 ## API
 

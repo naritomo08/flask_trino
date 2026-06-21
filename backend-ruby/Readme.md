@@ -6,14 +6,16 @@ Sinatra と Rack/Puma で共通ログ検索APIを提供する Ruby バックエ�
 
 ```text
 backend-ruby/
-├── Dockerfile  # Ruby実行環境、依存導入、Rack起動
-├── Gemfile     # Sinatra、Puma、Rackとテスト依存
-├── Readme.md   # このファイル
-├── app.rb      # Sinatraルート、Trino通信、SQL生成、結果整形
-└── config.ru   # Rackエントリーポイント
+├── Dockerfile       # Ruby実行環境、依存導入、Rack起動
+├── Gemfile          # Sinatra、Puma、Rackとテスト依存
+├── Readme.md        # このファイル
+├── app.rb           # SinatraルートとJSONレスポンス
+├── config.ru        # Rackエントリーポイント
+├── log_search.rb    # 入力正規化、SQL生成、結果整形
+└── trino_client.rb  # Trino REST APIクライアント
 ```
 
-`app.rb` を分割する場合は `TrinoClient` と `LogSearchApp` 内の検索ロジックが境界候補です。現状は他言語版との対応を確認しやすい単一実装として維持しています。
+SinatraのHTTP層、ログ検索ロジック、Trino通信を独立したファイルに分けています。
 
 ## API
 

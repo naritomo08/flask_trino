@@ -3,7 +3,7 @@ FROM golang:1.22-alpine AS builder
 WORKDIR /src
 
 COPY go.mod ./
-COPY main.go ./
+COPY *.go ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/trino-log-search .
 
 FROM alpine:3.20

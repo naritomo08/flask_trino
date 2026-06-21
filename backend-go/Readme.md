@@ -6,13 +6,19 @@ Go 標準ライブラリの HTTP サーバーで共通ログ検索APIを提供�
 
 ```text
 backend-go/
-├── Dockerfile  # マルチステージビルドと実行イメージ
-├── Readme.md   # このファイル
-├── go.mod      # Goモジュール定義
-└── main.go     # HTTP、Trino通信、SQL生成、結果整形
+├── Dockerfile      # マルチステージビルドと実行イメージ
+├── Readme.md       # このファイル
+├── config.go       # 環境変数と共通設定
+├── go.mod          # Goモジュール定義
+├── http.go         # HTTPルート、入力正規化、JSONレスポンス
+├── main.go         # サーバー起動
+├── models.go       # APIのデータ型
+├── query.go        # SQL生成と検索結果整形
+├── time_format.go  # 検索時刻と表示時刻の変換
+└── trino.go        # Trino REST APIクライアント
 ```
 
-`main.go` は共通APIを他言語実装と比較しやすいよう、現在は単一ファイルにまとめています。分割する場合は `http`、`trino`、`query` の3責務が境界候補です。
+HTTP、Trino通信、SQL生成を独立したファイルに分け、設定・モデル・時刻変換もそれぞれの責務へ切り出しています。
 
 ## API
 
