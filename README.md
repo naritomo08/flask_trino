@@ -27,6 +27,18 @@ docker compose up -d --build
 - ログ検索: http://localhost:8081/search
 - 疎通確認: http://localhost:8081/health
 
+## コンテナ構成
+
+各コンテナの役割とファイル構成は、それぞれのREADMEに記載しています。
+
+- [frontend](frontend/Readme.md)
+- [backend-python](backend-python/Readme.md)
+- [backend-go](backend-go/Readme.md)
+- [backend-java](backend-java/Readme.md)
+- [backend-php](backend-php/Readme.md)
+- [backend-ruby](backend-ruby/Readme.md)
+- [backend-elixir](backend-elixir/Readme.md)
+
 ## 前提
 
 Trino / Iceberg / ログ収集基盤はこの Compose には含めません。デフォルトでは `trino1:8080` の Trino に接続します。

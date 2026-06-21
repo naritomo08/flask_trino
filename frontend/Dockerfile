@@ -8,4 +8,5 @@ RUN sh build-assets.sh . dist
 FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY proxy-common.conf /etc/nginx/includes/proxy-common.conf
 COPY --from=frontend-builder /build/dist/ /usr/share/nginx/html/
