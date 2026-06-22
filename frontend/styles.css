@@ -15,7 +15,11 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body {
   margin: 0;
   min-width: 320px;
@@ -267,21 +271,29 @@ mark { padding: 1px 3px; border-radius: 3px; color: inherit; background: #fff19a
 
 @media (max-width: 640px) {
   .container { width: calc(100% - 28px); max-width: 1160px; }
-  .header-inner { min-height: 68px; gap: 8px; }
-  .brand { min-width: 0; }
-  .brand strong { font-size: .88rem; }
+  .header-inner { min-height: 76px; gap: 8px; }
+  .brand { min-width: 0; gap: 10px; }
+  .brand-mark { width: 46px; height: 46px; border-radius: 13px; font-size: 1.4rem; }
+  .brand strong { font-size: 1rem; line-height: 1.2; white-space: nowrap; }
   .brand small, .nav-link { display: none; }
   .backend-selector > span { display: none; }
-  .backend-selector select { width: 104px; max-width: 104px; }
+  .backend-selector select { width: 96px; max-width: 96px; min-height: 42px; }
   .header-nav { min-width: 0; }
   .hero { padding: 58px 0; }
-  .hero h1 { font-size: clamp(1.85rem, 9.5vw, 2.3rem); overflow-wrap: anywhere; }
+  .hero h1 {
+    width: 100vw; margin-left: calc(50% - 50vw);
+    font-size: clamp(2rem, 10vw, 2.55rem); white-space: nowrap;
+  }
   .hero-copy { font-size: .88rem; }
   .log-total { min-height: 58px; gap: 10px; padding: 9px 18px; }
   .log-total-label { font-size: .8125rem; }
   .log-total-value { font-size: 1.75rem; }
   .log-total-value small { font-size: .75rem; }
   .search-form { width: 100%; max-width: 100%; min-width: 0; overflow: hidden; }
+  .hero-search {
+    width: 100vw; max-width: none; margin-inline: calc(50% - 50vw);
+    border-right: 0; border-left: 0; border-radius: 0;
+  }
   .primary-search { padding-left: 15px; }
   .primary-search button { padding-inline: 17px; }
   .filters summary { padding-inline: 16px; }
@@ -292,7 +304,9 @@ mark { padding: 1px 3px; border-radius: 3px; color: inherit; background: #fff19a
   .filter-actions { padding-inline: 16px; }
   .result-count strong { font-size: 2rem; }
   .result-toolbar { align-items: flex-start; flex-direction: column; }
+  [data-home-logs] { width: 100vw; margin-left: calc(50% - 50vw); }
   .log-grid { grid-template-columns: 1fr; }
+  .home-log-card { border-right: 0; border-left: 0; border-radius: 0; }
   .results-summary > strong { font-size: 2rem; }
   .result-card { padding: 22px; }
   .result-card-top { align-items: flex-start; flex-direction: column; }
@@ -306,4 +320,10 @@ mark { padding: 1px 3px; border-radius: 3px; color: inherit; background: #fff19a
   .page-heading .button-secondary { width: 100%; text-align: center; }
   .detail-list { grid-template-columns: 1fr; }
   .detail-list div, .detail-list .wide { grid-column: 1; }
+}
+
+@media (max-width: 360px) {
+  .brand-mark { width: 42px; height: 42px; font-size: 1.25rem; }
+  .brand strong { font-size: .9rem; }
+  .backend-selector select { width: 88px; max-width: 88px; }
 }
