@@ -571,8 +571,21 @@ async function readJson(response) {
   try {
     return JSON.parse(text);
   } catch {
-    return { error: text.trim() || response.statusText };
+    return { error: httpErrorMessage(response) };
   }
+}
+
+function httpErrorMessage(response) {
+  if (response.status === 504) {
+    return "検索処理がタイムアウトしました。条件を絞って、もう一度お試しください。";
+  }
+  if (response.status === 502) {
+    return "バックエンドまたはTrinoへの接続に失敗しました。稼働状況を確認してください。";
+  }
+  if (response.status === 503) {
+    return "サービスを一時的に利用できません。しばらくしてから、もう一度お試しください。";
+  }
+  return response.statusText || "サーバーから正常な応答を受け取れませんでした。";
 }
 
 function highlight(value, query) {
