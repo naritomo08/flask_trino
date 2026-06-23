@@ -52,6 +52,51 @@ cp .env.example .env
 
 `TRINO_HOST_ALIAS` と `TRINO_HOST_IP` は Compose の `extra_hosts` に使われます。`TRINO_URL` のホスト名を変更する場合は、`TRINO_HOST_ALIAS` も同じ名前にしてください。
 
+## フロントエンドのsyslog転送
+
+`frontend` は、標準出力・標準エラーをDockerホストの
+`127.0.0.1:514/TCP`へ送信するように設定されています。
+この設定を使用する場合は、コンテナを起動する前にホスト上でrsyslogなどを
+TCP 514番で待ち受けさせてください。
+
+受信先が動作していない場合、Dockerのlogging driverを初期化できず、
+`frontend`コンテナの作成または起動に失敗することがあります。
+
+Ubuntu / Debianでrsyslogを使用する場合の設定例です。
+
+```conf
+# /etc/rsyslog.d/10-docker-frontend.conf
+module(load="imtcp")
+input(type="imtcp" address="127.0.0.1" port="514")
+
+if $programname == "trino-search-frontend" then {
+    action(type="omfile" file="/var/log/trino-search-frontend.log")
+    stop
+}
+```
+
+設定反映後、TCP 514番の待ち受けを確認します。
+
+```bash
+sudo systemctl restart rsyslog
+sudo ss -lntp | grep ':514'
+```
+
+syslog転送を使用しない場合は、`docker-compose.yml`の`frontend`から
+次の`logging`設定を削除してから起動してください。
+
+```yaml
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://127.0.0.1:514"
+        tag: "{{.Name}}"
+```
+
+Nginxのアクセスログはsyslogとは別に名前付きボリューム
+`frontend-access-logs`へ保存されるため、この設定を削除しても
+画面からのアクセスログ参照やCSVダウンロードは利用できます。
+
 ## 前提テーブル
 
 デフォルトでは以下の Trino テーブルを検索します。
