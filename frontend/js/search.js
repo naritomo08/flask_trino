@@ -84,7 +84,7 @@ function renderSearchResults(payload, params) {
         ${logs.length ? `<button class="button-secondary compact" type="button" data-download-csv>CSVダウンロード</button>` : ""}
       </div>
       ${logs.length
-        ? `<div class="result-list">${logs.map((log, index) => resultCard(log, index, params.message)).join("")}</div>${pagination(page, totalPages)}`
+        ? `<div class="result-list">${logs.map((log, index) => resultCard(log, index, params.message, location.search)).join("")}</div>${pagination(page, totalPages, location.search)}`
         : emptyState("一致するログがありません", "条件を減らすか、検索期間を広げてみてください。")}
     </section>
   `;

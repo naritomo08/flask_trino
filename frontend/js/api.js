@@ -11,10 +11,13 @@ export async function backendIsAvailable(key) {
 }
 
 export async function requestLogs(params) {
-  const response = await fetch(apiPath("logs"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(params)
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && String(value) !== "") query.set(key, value);
+  });
+  const response = await fetch(`${apiPath("logs")}?${query}`, {
+    cache: "no-store",
+    headers: { Accept: "application/json" }
   });
   const payload = await readJson(response);
   if (!response.ok) throw new Error(payload.error || "検索に失敗しました。");

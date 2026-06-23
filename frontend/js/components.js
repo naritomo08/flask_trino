@@ -2,7 +2,7 @@ import { escapeHtml, highlight } from "./utils.js";
 
 export function searchForm(params, className = "") {
   return `
-    <form class="search-form ${className}" data-search-form>
+    <form class="search-form ${className}" action="/search" method="get" data-search-form>
       <div class="primary-search">
         <span class="search-icon" aria-hidden="true"></span>
         <input
@@ -47,20 +47,20 @@ export function homeLogsMarkup(logs) {
     : emptyState("ログがありません", "対象日のログがまだ登録されていません。");
 }
 
-export function resultCard(log, index, keyword) {
+export function resultCard(log, index, keyword, currentParams = "") {
   return `
     <article class="result-card">
       <div class="result-card-top">
         <div class="log-meta">
           <time>${escapeHtml(log.display_time || log.event_time || "—")}</time>
-          ${resultFilterButton("log_type", log.log_type, log.log_type || "unknown", `log-type ${log.log_type || "unknown"}`)}
+          ${resultFilterLink("log_type", log.log_type, log.log_type || "unknown", `log-type ${log.log_type || "unknown"}`, currentParams)}
         </div>
         <span class="index-name">${escapeHtml(log.index || "")}</span>
       </div>
       <div class="result-identity">
-        ${resultFilterButton("host", log.host, log.host || "unknown host", "source-filter host-filter")}
+        ${resultFilterLink("host", log.host, log.host || "unknown host", "source-filter host-filter", currentParams)}
         <span>/</span>
-        ${resultFilterButton("program", log.program, log.program || "unknown program", "source-filter")}
+        ${resultFilterLink("program", log.program, log.program || "unknown program", "source-filter", currentParams)}
       </div>
       <p class="result-message">${highlight(log.msg || "", keyword)}</p>
       <button class="card-link" type="button" data-log-index="${index}">すべてのフィールドを表示 <span>→</span></button>
@@ -68,13 +68,18 @@ export function resultCard(log, index, keyword) {
   `;
 }
 
-export function pagination(page, totalPages) {
+export function pagination(page, totalPages, currentParams = "") {
   if (totalPages <= 1) return "";
+  const pageLink = (target, label) => {
+    const params = new URLSearchParams(currentParams);
+    params.set("page", target);
+    return `<a href="/search?${escapeHtml(params.toString())}" data-route>${label}</a>`;
+  };
   return `
     <nav class="pagination" aria-label="検索結果ページ">
-      ${page > 1 ? `<button type="button" data-page="${page - 1}">← 前へ</button>` : `<span class="disabled">← 前へ</span>`}
+      ${page > 1 ? pageLink(page - 1, "← 前へ") : `<span class="disabled">← 前へ</span>`}
       <span>${page} / ${totalPages}</span>
-      ${page < totalPages ? `<button type="button" data-page="${page + 1}">次へ →</button>` : `<span class="disabled">次へ →</span>`}
+      ${page < totalPages ? pageLink(page + 1, "次へ →") : `<span class="disabled">次へ →</span>`}
     </nav>
   `;
 }
@@ -117,27 +122,29 @@ function homeLogCard(log, index) {
     <article class="home-log-card">
       <div class="log-meta">
         <time>${escapeHtml(log.display_time || log.event_time || "時刻不明")}</time>
-        ${resultFilterButton("log_type", log.log_type, log.log_type || "unknown", `log-type ${log.log_type || "unknown"}`)}
+        ${resultFilterLink("log_type", log.log_type, log.log_type || "unknown", `log-type ${log.log_type || "unknown"}`)}
       </div>
-      <h3>${resultFilterButton("program", log.program, log.program || "unknown program", "source-filter program-filter")}</h3>
-      <p class="host-label">${resultFilterButton("host", log.host, log.host || "unknown host", "source-filter host-filter")}</p>
+      <h3>${resultFilterLink("program", log.program, log.program || "unknown program", "source-filter program-filter")}</h3>
+      <p class="host-label">${resultFilterLink("host", log.host, log.host || "unknown host", "source-filter host-filter")}</p>
       <p class="message-preview">${escapeHtml(log.msg || "メッセージなし")}</p>
       <button class="card-link" type="button" data-log-index="${index}">ログ詳細を見る <span>→</span></button>
     </article>
   `;
 }
 
-function resultFilterButton(key, value, label, className) {
+function resultFilterLink(key, value, label, className, currentParams = "") {
   if (!value) return `<span class="${escapeHtml(className)}">${escapeHtml(label)}</span>`;
+  const params = new URLSearchParams(currentParams);
+  params.set(key, value);
+  params.set("page", "1");
   return `
-    <button
+    <a
       class="${escapeHtml(className)}"
-      type="button"
-      data-result-filter="${escapeHtml(key)}"
-      data-filter-value="${escapeHtml(value)}"
+      href="/search?${escapeHtml(params.toString())}"
+      data-route
       title="${escapeHtml(label)}で絞り込む"
       aria-label="${escapeHtml(label)}で絞り込む"
-    >${escapeHtml(label)}</button>
+    >${escapeHtml(label)}</a>
   `;
 }
 

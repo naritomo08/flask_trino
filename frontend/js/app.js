@@ -34,27 +34,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const pageLink = event.target.closest("[data-page]");
-  if (pageLink) {
-    stopMonitoring();
-    const params = new URLSearchParams(location.search);
-    params.set("page", pageLink.dataset.page);
-    history.pushState({}, "", `/search?${params}`);
-    await renderSearchPage();
-    return;
-  }
-
-  const filterButton = event.target.closest("[data-result-filter]");
-  if (filterButton) {
-    stopMonitoring();
-    const params = new URLSearchParams(location.search);
-    params.set(filterButton.dataset.resultFilter, filterButton.dataset.filterValue);
-    params.set("page", "1");
-    history.pushState({}, "", `/search?${params}`);
-    await renderSearchPage();
-    return;
-  }
-
   const detailButton = event.target.closest("[data-log-index]");
   if (detailButton) {
     showLogDetail(getCurrentLogs()[Number(detailButton.dataset.logIndex)]);

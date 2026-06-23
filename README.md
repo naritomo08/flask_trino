@@ -89,7 +89,13 @@ cp .env.example .env
 
 ## API
 
-フロントエンド経由の検索:
+フロントエンド経由の検索（画面と同様にGETで検索条件を指定）:
+
+```bash
+curl "http://localhost:8081/api/flask/logs?date=2026-06-19&time_from=09%3A00&time_to=10%3A30&message=timeout&log_type=syslog&page=1&size=25"
+```
+
+POSTにも対応しています:
 
 ```bash
 curl -X POST http://localhost:8081/api/flask/logs \

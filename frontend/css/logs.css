@@ -3,8 +3,8 @@
   display: inline-flex; border: 0; padding: 3px 9px; border-radius: 999px;
   color: #fff; font-size: .68rem; font-weight: 900;
 }
-button.log-type, .source-filter { cursor: pointer; }
-button.log-type:hover, button.log-type:focus-visible { box-shadow: 0 0 0 3px rgba(23, 107, 135, .18); }
+a.log-type, .source-filter { cursor: pointer; }
+a.log-type:hover, a.log-type:focus-visible { box-shadow: 0 0 0 3px rgba(23, 107, 135, .18); }
 .log-type.syslog { background: #506579; }
 .log-type.authlog { background: #9a5c1a; }
 .log-type.unknown { background: #748087; }
