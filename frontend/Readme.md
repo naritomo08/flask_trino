@@ -9,11 +9,11 @@ frontend/
 ├── Dockerfile          # アセット生成用ステージと Nginx 実行イメージ
 ├── Readme.md           # このファイル
 ├── build-assets.sh     # CSS/JSへ内容ハッシュを付けて dist を生成
+├── css/                # 共通・画面別・レスポンシブのスタイル
 ├── index.html          # SPA のHTMLシェル
+├── js/                 # ES Modulesで分割した画面・通信・共通処理
 ├── nginx.conf          # 静的配信、API/healthルーティング、ログ設定
-├── proxy-common.conf   # バックエンド転送時の共通HTTPヘッダー
-├── search.js           # 画面描画、検索、ヘルス監視、CSV出力
-└── styles.css          # 全画面共通スタイルとレスポンシブ表示
+└── proxy-common.conf   # バックエンド転送時の共通HTTPヘッダー
 ```
 
 ## ルーティング
@@ -31,4 +31,4 @@ docker compose build frontend
 docker compose up -d frontend
 ```
 
-`build-assets.sh` は `styles.css` と `search.js` の内容ハッシュをファイル名へ付与し、生成した名前に `index.html` を書き換えます。
+`build-assets.sh` は各CSSとJSのエントリーポイントへ内容ハッシュを付与し、生成した名前に `index.html` を書き換えます。JSはブラウザ標準のES Modulesで読み込みます。

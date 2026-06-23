@@ -1,0 +1,27 @@
+.health-page { padding: 58px 0 80px; }
+.health-summary {
+  display: flex; align-items: center; gap: 10px; margin: 28px 0; padding: 15px 18px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+}
+.health-summary time { margin-left: auto; color: var(--muted); font-size: .76rem; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: #a2adb1; box-shadow: 0 0 0 5px rgba(162,173,177,.15); }
+.status-dot.healthy { background: #2c9960; box-shadow: 0 0 0 5px rgba(44,153,96,.14); }
+.status-dot.unhealthy { background: #bd4b4b; box-shadow: 0 0 0 5px rgba(189,75,75,.14); }
+.health-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.health-card { padding: 22px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: 0 8px 24px rgba(18,62,76,.04); }
+.health-card.healthy { border-color: #9ed0b1; }
+.health-card.unhealthy { border-color: #dfaaaa; }
+.health-card-top { display: flex; align-items: center; justify-content: space-between; }
+.service-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 10px; color: #fff; background: #77868b; font-weight: 900; }
+.health-card.healthy .service-icon { background: #2c9960; }
+.health-card.unhealthy .service-icon { background: #b74b4b; }
+.health-badge { padding: 4px 9px; border-radius: 999px; color: #65757a; background: #edf2f3; font-size: .68rem; font-weight: 900; }
+.health-card.healthy .health-badge { color: #176b3e; background: #e1f4e8; }
+.health-card.unhealthy .health-badge { color: #8d3030; background: #f8e4e4; }
+.health-card h2 { margin: 17px 0 4px; font-size: 1.08rem; }
+.health-message { min-height: 3.2em; margin: 0; color: var(--muted); font-size: .8rem; }
+.health-card dl { display: grid; gap: 6px; margin: 16px 0 0; padding-top: 13px; border-top: 1px solid var(--line); }
+.health-card dl div { display: flex; justify-content: space-between; gap: 10px; }
+.health-card dt, .health-card dd { margin: 0; font-size: .74rem; }
+.health-card dt { color: var(--muted); }
+.health-card dd { font-weight: 800; }
