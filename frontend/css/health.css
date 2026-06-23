@@ -25,22 +25,18 @@
 .health-card dt, .health-card dd { margin: 0; font-size: .74rem; }
 .health-card dt { color: var(--muted); }
 .health-card dd { font-weight: 800; }
-.access-log-section { margin-top: 44px; }
-.access-log-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-.access-log-heading h2 { margin: 0; font-size: 1.55rem; }
-.access-log-heading p:not(.eyebrow) { margin: 6px 0 0; color: var(--muted); font-size: .84rem; }
+.access-log-section { margin-top: 48px; }
+.access-log-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
+.access-log-heading h2 { margin: 0; }
+.access-log-heading p:not(.eyebrow) { margin: 6px 0 0; color: var(--muted); font-size: .8rem; }
 .access-log-controls { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
 .access-log-controls label { display: grid; gap: 4px; color: var(--muted); font-size: .72rem; font-weight: 800; }
-.access-log-controls input { min-height: 37px; border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; color: var(--text); background: #fff; }
-.access-log-summary { margin: 18px 0 10px; color: var(--muted); font-size: .78rem; font-weight: 800; }
-.access-log-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-.access-log-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
-.access-log-table th, .access-log-table td { padding: 11px 13px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
-.access-log-table th { color: var(--muted); background: #f7fafb; font-size: .68rem; text-transform: uppercase; }
+.access-log-controls input { min-height: 39px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: #fff; font: inherit; }
+.access-log-summary { margin: 0 0 10px; color: var(--muted); font-size: .78rem; font-weight: 800; }
+.access-log-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.access-log-table { width: 100%; border-collapse: collapse; font-size: .76rem; white-space: nowrap; }
+.access-log-table th, .access-log-table td { padding: 11px 13px; border-bottom: 1px solid var(--line); text-align: left; }
+.access-log-table th { color: var(--muted); background: #f4f7f5; }
 .access-log-table tbody tr:last-child td { border-bottom: 0; }
-.access-log-table code { display: inline-block; max-width: 440px; overflow: hidden; color: var(--text); text-overflow: ellipsis; vertical-align: bottom; }
-.http-status { display: inline-block; min-width: 3em; border-radius: 999px; padding: 2px 7px; text-align: center; font-weight: 900; }
-.http-status.status-success { color: #176b3e; background: #e1f4e8; }
-.http-status.status-redirect { color: #72570b; background: #fff2c7; }
-.http-status.status-client-error, .http-status.status-server-error { color: #8d3030; background: #f8e4e4; }
-.empty-state.compact { padding: 32px 20px; border: 0; }
+.access-log-table .access-log-uri { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+.access-log-table .is-error { color: #bd4b4b; font-weight: 900; }

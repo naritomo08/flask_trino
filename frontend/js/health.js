@@ -37,8 +37,8 @@ export async function renderHealthPage() {
           </div>
           <form class="access-log-controls" data-access-log-form>
             <label>対象日 <input type="date" name="date" value="${todayJst()}"></label>
-            <button class="button-secondary compact" type="submit">表示</button>
-            <button class="button-secondary compact" type="button" data-access-log-download>CSVダウンロード</button>
+            <button class="button-secondary" type="submit">表示</button>
+            <button class="button-secondary" type="button" data-access-log-download>CSVダウンロード</button>
           </form>
         </div>
         <div class="access-log-summary" data-access-log-summary>読み込み中…</div>
@@ -71,18 +71,20 @@ export async function updateHealth() {
 export async function updateAccessLogs({ date = accessLogDate } = {}) {
   if (location.pathname !== "/health") return;
   accessLogDate = String(date || todayJst());
+  const dateInput = document.querySelector("[data-access-log-form] input[name=date]");
   const summary = document.querySelector("[data-access-log-summary]");
   const table = document.querySelector("[data-access-log-table]");
   if (!summary || !table) return;
+  if (dateInput) dateInput.value = accessLogDate;
   try {
-    const payload = await requestAccessLogs({ date: accessLogDate, tail: 200 });
+    const payload = await requestAccessLogs({ date: accessLogDate, tail: 100 });
     accessLogs = payload.logs || [];
-    summary.textContent = `${payload.date} / ${payload.count}件（直近200件まで）`;
+    summary.textContent = `${payload.date} / ${payload.count}件（直近100件まで）`;
     table.innerHTML = accessLogTable(accessLogs);
   } catch (error) {
     accessLogs = [];
-    summary.textContent = error.message;
-    table.innerHTML = "";
+    summary.textContent = "取得失敗";
+    table.innerHTML = accessLogTable([], error.message);
   }
 }
 
@@ -133,22 +135,20 @@ function updateHealthCard(result) {
   card.querySelector("[data-latency]").textContent = `${result.latency} ms`;
 }
 
-function accessLogTable(logs) {
-  if (!logs.length) {
-    return `<div class="empty-state compact"><h3>アクセスログはありません</h3><p>対象日の利用者操作はまだ記録されていません。</p></div>`;
-  }
+function accessLogTable(logs, message = "") {
   return `
     <table class="access-log-table">
-      <thead><tr><th>時刻</th><th>接続元</th><th>リクエスト</th><th>状態</th><th>応答時間</th></tr></thead>
+      <thead><tr><th>時刻</th><th>接続元</th><th>Method</th><th>URI</th><th>Status</th><th>応答時間</th></tr></thead>
       <tbody>
-        ${[...logs].reverse().map((log) => `
+        ${logs.length ? [...logs].reverse().map((log) => `
           <tr>
             <td>${escapeHtml(formatAccessTime(log["@timestamp"]))}</td>
             <td>${escapeHtml(log.remote_addr || "—")}</td>
-            <td><strong>${escapeHtml(log.method || "—")}</strong> <code>${escapeHtml(log.uri || "—")}</code></td>
-            <td><span class="http-status status-${statusClass(log.status)}">${escapeHtml(log.status ?? "—")}</span></td>
+            <td>${escapeHtml(log.method || "—")}</td>
+            <td class="access-log-uri" title="${escapeHtml(log.uri || "")}">${escapeHtml(log.uri || "—")}</td>
+            <td class="${Number(log.status) >= 400 ? "is-error" : ""}">${escapeHtml(log.status ?? "—")}</td>
             <td>${escapeHtml(log.request_time ?? "—")} s</td>
-          </tr>`).join("")}
+          </tr>`).join("") : `<tr><td colspan="6">${escapeHtml(message || "対象日のアクセスログはありません。")}</td></tr>`}
       </tbody>
     </table>`;
 }
@@ -159,12 +159,4 @@ function formatAccessTime(value) {
   return Number.isNaN(date.getTime())
     ? value
     : date.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
-}
-
-function statusClass(status) {
-  const value = Number(status);
-  if (value >= 500) return "server-error";
-  if (value >= 400) return "client-error";
-  if (value >= 300) return "redirect";
-  return "success";
 }
