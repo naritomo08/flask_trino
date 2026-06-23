@@ -1,7 +1,13 @@
 import { backendIsAvailable } from "./api.js";
 import { showLogDetail, renderError } from "./components.js";
 import { BACKENDS } from "./config.js";
-import { renderHealthPage, stopHealthMonitoring, updateHealth } from "./health.js";
+import {
+  downloadCurrentAccessLogs,
+  renderHealthPage,
+  stopHealthMonitoring,
+  updateAccessLogs,
+  updateHealth
+} from "./health.js";
 import { renderHomePage, stopHomeMonitoring } from "./home.js";
 import { renderSearchPage } from "./search.js";
 import { getCurrentLogs, getSelectedBackend, setSelectedBackend } from "./state.js";
@@ -65,12 +71,22 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-access-log-download]")) {
+    await downloadCurrentAccessLogs();
+    return;
+  }
+
   if (event.target.closest("[data-dialog-close]")) {
     logDialog.close();
   }
 });
 
 document.addEventListener("submit", async (event) => {
+  if (event.target.matches("[data-access-log-form]")) {
+    event.preventDefault();
+    await updateAccessLogs({ date: new FormData(event.target).get("date") });
+    return;
+  }
   if (!event.target.matches("[data-search-form]")) return;
   event.preventDefault();
   stopMonitoring();

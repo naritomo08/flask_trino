@@ -1,9 +1,12 @@
-import { requestHealth } from "./api.js";
+import { requestAccessLogs, requestHealth } from "./api.js";
 import { BACKENDS } from "./config.js";
+import { downloadAccessLogsCsv, escapeHtml, todayJst } from "./utils.js";
 
 const app = document.querySelector("#app");
 let healthTimer;
 let healthRequestId = 0;
+let accessLogs = [];
+let accessLogDate = "";
 
 export async function renderHealthPage() {
   document.title = "稼働状況 | Trino Log Search";
@@ -25,8 +28,25 @@ export async function renderHealthPage() {
       <div class="health-grid">
         ${Object.entries(BACKENDS).map(([key, backend]) => healthCard(key, backend)).join("")}
       </div>
+      <section class="access-log-section">
+        <div class="access-log-heading">
+          <div>
+            <p class="eyebrow">ACCESS LOGS</p>
+            <h2>アクセスログ</h2>
+            <p>監視リクエストと静的ファイルを除いた、実際のブラウザ操作を表示します。</p>
+          </div>
+          <form class="access-log-controls" data-access-log-form>
+            <label>対象日 <input type="date" name="date" value="${todayJst()}"></label>
+            <button class="button-secondary compact" type="submit">表示</button>
+            <button class="button-secondary compact" type="button" data-access-log-download>CSVダウンロード</button>
+          </form>
+        </div>
+        <div class="access-log-summary" data-access-log-summary>読み込み中…</div>
+        <div class="access-log-table-wrap" data-access-log-table></div>
+      </section>
     </section>
   `;
+  accessLogDate = todayJst();
   await updateHealth();
   healthTimer = window.setInterval(updateHealth, 5000);
 }
@@ -45,6 +65,35 @@ export async function updateHealth() {
   summary.textContent = healthy === results.length ? "すべてのサービスが正常です" : `${healthy}/${results.length} サービスが正常です`;
   dot.className = `status-dot ${healthy === results.length ? "healthy" : "unhealthy"}`;
   updated.textContent = `最終更新 ${new Date().toLocaleTimeString("ja-JP")}`;
+  await updateAccessLogs({ date: accessLogDate });
+}
+
+export async function updateAccessLogs({ date = accessLogDate } = {}) {
+  if (location.pathname !== "/health") return;
+  accessLogDate = String(date || todayJst());
+  const summary = document.querySelector("[data-access-log-summary]");
+  const table = document.querySelector("[data-access-log-table]");
+  if (!summary || !table) return;
+  try {
+    const payload = await requestAccessLogs({ date: accessLogDate, tail: 200 });
+    accessLogs = payload.logs || [];
+    summary.textContent = `${payload.date} / ${payload.count}件（直近200件まで）`;
+    table.innerHTML = accessLogTable(accessLogs);
+  } catch (error) {
+    accessLogs = [];
+    summary.textContent = error.message;
+    table.innerHTML = "";
+  }
+}
+
+export async function downloadCurrentAccessLogs() {
+  try {
+    const payload = await requestAccessLogs({ date: accessLogDate, full: true });
+    downloadAccessLogsCsv(payload.logs || [], payload.date);
+  } catch (error) {
+    const summary = document.querySelector("[data-access-log-summary]");
+    if (summary) summary.textContent = error.message;
+  }
 }
 
 export function stopHealthMonitoring() {
@@ -82,4 +131,40 @@ function updateHealthCard(result) {
   card.querySelector("[data-backend-state]").textContent = result.backendOk ? "正常" : "応答なし";
   card.querySelector("[data-trino-state]").textContent = result.trinoOk ? "正常" : "接続不可";
   card.querySelector("[data-latency]").textContent = `${result.latency} ms`;
+}
+
+function accessLogTable(logs) {
+  if (!logs.length) {
+    return `<div class="empty-state compact"><h3>アクセスログはありません</h3><p>対象日の利用者操作はまだ記録されていません。</p></div>`;
+  }
+  return `
+    <table class="access-log-table">
+      <thead><tr><th>時刻</th><th>接続元</th><th>リクエスト</th><th>状態</th><th>応答時間</th></tr></thead>
+      <tbody>
+        ${[...logs].reverse().map((log) => `
+          <tr>
+            <td>${escapeHtml(formatAccessTime(log["@timestamp"]))}</td>
+            <td>${escapeHtml(log.remote_addr || "—")}</td>
+            <td><strong>${escapeHtml(log.method || "—")}</strong> <code>${escapeHtml(log.uri || "—")}</code></td>
+            <td><span class="http-status status-${statusClass(log.status)}">${escapeHtml(log.status ?? "—")}</span></td>
+            <td>${escapeHtml(log.request_time ?? "—")} s</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+function formatAccessTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+}
+
+function statusClass(status) {
+  const value = Number(status);
+  if (value >= 500) return "server-error";
+  if (value >= 400) return "client-error";
+  if (value >= 300) return "redirect";
+  return "success";
 }

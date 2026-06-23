@@ -63,6 +63,10 @@
   .health-grid { grid-template-columns: 1fr; }
   .health-summary { flex-wrap: wrap; }
   .health-summary time { width: 100%; margin-left: 20px; }
+  .access-log-heading { align-items: stretch; flex-direction: column; }
+  .access-log-controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .access-log-controls label { grid-column: 1 / -1; }
+  .access-log-controls input { width: 100%; }
   .page-heading { flex-direction: column; }
   .page-heading .button-secondary { width: 100%; text-align: center; }
   .detail-list { grid-template-columns: 1fr; }

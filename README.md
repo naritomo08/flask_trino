@@ -38,6 +38,7 @@ docker compose up -d --build
 - [backend-php](backend-php/Readme.md)
 - [backend-ruby](backend-ruby/Readme.md)
 - [backend-elixir](backend-elixir/Readme.md)
+- `access-log-api`: Nginxが永続化したアクセスログの参照API
 
 ## 前提
 
@@ -83,6 +84,7 @@ cp .env.example .env
 - Backend選択のLocal Storage保存
 - 6バックエンドとTrinoの稼働状況表示
 - 稼働状況の5秒ごとの自動更新
+- Nginxアクセスログの日次保存・稼働状況画面での閲覧・CSVダウンロード
 - デスクトップ／モバイル対応
 
 ## API
@@ -110,6 +112,17 @@ curl -X POST http://localhost:8081/api/flask/logs \
 ```bash
 curl http://localhost:8081/health/flask
 ```
+
+アクセスログ:
+
+```bash
+curl "http://localhost:8081/api/access-logs?tail=100"
+curl "http://localhost:8081/api/access-logs?date=2026-06-23&full=1"
+```
+
+ログはJSTの日付ごとに名前付きボリュームへ保存され、標準では14日後に削除されます。
+`ACCESS_LOG_RETENTION_DAYS`で保持日数、`ACCESS_LOG_HOST`で表示上のホスト名を変更できます。
+`/health`、`/api/access-logs`、静的アセットなどの自動リクエストは記録対象外です。
 
 ## 設定
 

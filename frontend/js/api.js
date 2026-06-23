@@ -42,6 +42,22 @@ export async function requestHealth(key) {
   }
 }
 
+export async function requestAccessLogs({ date = "", full = false, tail = 200 } = {}) {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  if (full) params.set("full", "1");
+  else params.set("tail", String(tail));
+  const response = await fetch(`/api/access-logs?${params}`, { cache: "no-store" });
+  const payload = await readJson(response);
+  if (!response.ok) {
+    const message = response.status >= 500
+      ? "アクセスログAPIへ接続できませんでした。サービスの稼働状況を確認してください。"
+      : payload.error || "アクセスログを取得できませんでした。";
+    throw new Error(message);
+  }
+  return payload;
+}
+
 async function readJson(response) {
   const text = await response.text();
   try {

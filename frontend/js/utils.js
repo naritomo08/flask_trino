@@ -35,6 +35,23 @@ export function downloadCsv(logs) {
   URL.revokeObjectURL(url);
 }
 
+export function downloadAccessLogsCsv(logs, date) {
+  if (!logs.length) return;
+  const keys = [
+    ["@timestamp", "Time"], ["remote_addr", "Remote Address"], ["method", "Method"],
+    ["uri", "URI"], ["status", "Status"], ["body_bytes_sent", "Bytes"],
+    ["request_time", "Request Time"], ["upstream_addr", "Upstream"], ["user_agent", "User Agent"]
+  ];
+  const rows = [keys.map(([, label]) => label), ...logs.map((log) => keys.map(([key]) => log[key] ?? ""))];
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}\r\n`], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `access-logs-${date || Date.now()}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

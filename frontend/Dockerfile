@@ -9,6 +9,10 @@ RUN sh build-assets.sh . dist
 
 FROM nginx:1.27-alpine
 
+RUN apk add --no-cache tzdata \
+    && mkdir -p /var/log/trino-access
+ENV TZ=Asia/Tokyo
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY proxy-common.conf /etc/nginx/includes/proxy-common.conf
 COPY --from=frontend-builder /build/dist/ /usr/share/nginx/html/
