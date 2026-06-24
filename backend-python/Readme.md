@@ -1,16 +1,16 @@
 # backend-python
 
-Flask と Gunicorn で共通ログ検索APIを提供し、HTTP経由で Trino を検索する Python バックエンドです。コンテナ内では `5000` ポートを使用します。
+FastAPI と Uvicorn で共通ログ検索APIを提供し、HTTP経由で Trino を検索する Python バックエンドです。コンテナ内では `5000` ポートを使用します。
 
 ## ファイル構成
 
 ```text
 backend-python/
-├── Dockerfile          # Python実行環境とGunicorn起動設定
+├── Dockerfile          # Python実行環境とUvicorn起動設定
 ├── Readme.md           # このファイル
-├── app.py              # Flaskルート、入力正規化、JSONレスポンス
+├── app.py              # FastAPIルート、入力正規化、JSONレスポンス
 ├── backend_factory.py  # ログ検索バックエンドの生成
-├── requirements.txt    # Flask、Gunicorn、requests、pytest
+├── requirements.txt    # FastAPI、Uvicorn、requests、pytest
 └── trino_backend.py    # Trinoクライアント、SQL生成、結果整形
 ```
 

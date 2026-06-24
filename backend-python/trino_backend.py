@@ -80,7 +80,7 @@ def get_client():
 def trino_headers():
     headers = {
         "X-Trino-User": TRINO_USER,
-        "X-Trino-Source": "flask-trino-log-search",
+        "X-Trino-Source": "python-trino-log-search",
         "Content-Type": "text/plain; charset=utf-8",
     }
     if TRINO_CATALOG:

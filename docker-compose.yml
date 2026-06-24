@@ -139,7 +139,7 @@ services:
     volumes:
       - ./tests:/app/tests:ro
     environment:
-      BACKEND_TARGETS: flask=http://backend-python:5000,go=http://backend-go:5000,java=http://backend-java:5000,php=http://backend-php:5000,ruby=http://backend-ruby:5000,elixir=http://backend-elixir:5000
+      BACKEND_TARGETS: python=http://backend-python:5000,go=http://backend-go:5000,java=http://backend-java:5000,php=http://backend-php:5000,ruby=http://backend-ruby:5000,elixir=http://backend-elixir:5000
       RUN_SEARCH_CONTRACT_TESTS: ${RUN_SEARCH_CONTRACT_TESTS:-0}
     command: ["pytest", "/app/tests"]
 

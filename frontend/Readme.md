@@ -22,7 +22,7 @@ frontend/
 - `/api/{backend}/...`: 選択したバックエンドの `/api/...` へ転送
 - `/health/{backend}`: 各バックエンドの `/health` へ転送
 
-`backend` は `flask`、`go`、`java`、`php`、`ruby`、`elixir` のいずれかです。
+`backend` は `python`、`go`、`java`、`php`、`ruby`、`elixir` のいずれかです。
 
 ## ビルド
 

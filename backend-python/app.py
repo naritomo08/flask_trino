@@ -1,9 +1,10 @@
-from flask import Flask, jsonify, request
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from backend_factory import create_backend
 
 
-app = Flask(__name__)
+app = FastAPI()
 backend = create_backend()
 
 
@@ -13,13 +14,13 @@ def get_backend():
 
 def normalize_filters(args):
     return {
-        "date": args.get("date", "").strip(),
-        "time_from": args.get("time_from", "").strip(),
-        "time_to": args.get("time_to", "").strip(),
-        "log_type": args.get("log_type", "").strip(),
-        "host": args.get("host", "").strip(),
-        "program": args.get("program", "").strip(),
-        "message": args.get("message", "").strip(),
+        "date": str(args.get("date", "")).strip(),
+        "time_from": str(args.get("time_from", "")).strip(),
+        "time_to": str(args.get("time_to", "")).strip(),
+        "log_type": str(args.get("log_type", "")).strip(),
+        "host": str(args.get("host", "")).strip(),
+        "program": str(args.get("program", "")).strip(),
+        "message": str(args.get("message", "")).strip(),
         "page": positive_int(args.get("page"), 1),
         "size": min(positive_int(args.get("size"), 25), 100),
     }
@@ -33,49 +34,46 @@ def positive_int(value, fallback):
         return fallback
 
 
-def filters_from_request():
-    if request.is_json:
-        return normalize_filters(request.get_json(silent=True) or {})
+async def filters_from_request(request: Request):
     if request.method == "POST":
-        return normalize_filters(request.form)
-    return normalize_filters(request.args)
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            body = await request.json()
+            return normalize_filters(body or {})
+        if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+            form = await request.form()
+            return normalize_filters(form)
+        return normalize_filters({})
+    return normalize_filters(request.query_params)
 
 
 @app.get("/")
 def index():
-    return jsonify(
-        {
-            "service": "flask-trino-backend",
-            "endpoints": ["/health", "/api/options", "/api/logs"],
-        }
-    )
+    return {
+        "service": "python-trino-backend",
+        "endpoints": ["/health", "/api/options", "/api/logs"],
+    }
 
 
 @app.get("/health")
 def health():
     current_backend = get_backend()
-    return jsonify(
-        {
-            "ok": current_backend.ping(),
-            **current_backend.health_info(),
-        }
-    )
+    return {
+        "ok": current_backend.ping(),
+        **current_backend.health_info(),
+    }
 
 
 @app.get("/api/options")
 def api_options():
-    return jsonify(get_backend().get_filter_options())
+    return get_backend().get_filter_options()
 
 
-@app.route("/api/logs", methods=["GET", "POST"])
-def api_search_logs():
-    filters = filters_from_request()
+@app.api_route("/api/logs", methods=["GET", "POST"])
+async def api_search_logs(request: Request):
+    filters = await filters_from_request(request)
     try:
         result = get_backend().search_logs_page(filters)
     except Exception as error:
-        return jsonify({"error": str(error)}), 502
-    return jsonify({"filters": filters, **result})
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+        return JSONResponse({"error": str(error)}, status_code=502)
+    return {"filters": filters, **result}

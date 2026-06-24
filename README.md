@@ -137,13 +137,13 @@ Nginxのアクセスログはsyslogとは別に名前付きボリューム
 フロントエンド経由の検索（画面と同様にGETで検索条件を指定）:
 
 ```bash
-curl "http://localhost:8081/api/flask/logs?date=2026-06-19&time_from=09%3A00&time_to=10%3A30&message=timeout&log_type=syslog&page=1&size=25"
+curl "http://localhost:8081/api/python/logs?date=2026-06-19&time_from=09%3A00&time_to=10%3A30&message=timeout&log_type=syslog&page=1&size=25"
 ```
 
 POSTにも対応しています:
 
 ```bash
-curl -X POST http://localhost:8081/api/flask/logs \
+curl -X POST http://localhost:8081/api/python/logs \
   -H "Content-Type: application/json" \
   -d '{
     "date":"2026-06-19",
@@ -161,7 +161,7 @@ curl -X POST http://localhost:8081/api/flask/logs \
 ヘルスチェック:
 
 ```bash
-curl http://localhost:8081/health/flask
+curl http://localhost:8081/health/python
 ```
 
 アクセスログ:
@@ -206,7 +206,7 @@ TRINO_TIMESTAMP_EXPRESSION=CAST("ts" AS timestamp)
 docker compose --profile test run --rm backend-contract-tests
 ```
 
-このテストでは Python / Flask, Go, Java, PHP, Ruby, Elixir の `/`, `/health`, `/api/options` の共通レスポンスを確認します。
+このテストでは Python, Go, Java, PHP, Ruby, Elixir の `/`, `/health`, `/api/options` の共通レスポンスを確認します。
 実際に Trino へ検索する `/api/logs` の契約テストは通常スキップされます。Trino に接続できる環境では以下で有効化できます。
 
 ```bash
