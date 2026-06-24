@@ -212,3 +212,13 @@ docker compose --profile test run --rm backend-contract-tests
 ```bash
 RUN_SEARCH_CONTRACT_TESTS=1 docker compose --profile test run --rm backend-contract-tests
 ```
+
+## おまけ情報
+
+`omake/readme1.md` には、本サイトの Nginx アクセスログをアクセスログAPIから取得し、
+Elasticsearch のデータストリーム `logs-access-trino` へ日次で取り込むための補足手順をまとめています。
+本体の起動には必須ではありませんが、アクセスログを Elasticsearch 側で保管・検索したい場合に参照してください。
+
+主な内容は、取り込みホストから本サイトへ接続するためのホスト設定、
+Elasticsearch の ILM ポリシーとインデックステンプレート作成、
+アクセスログ取り込みシェルの設置、手動実行、cron による定期実行です。
