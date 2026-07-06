@@ -26,6 +26,11 @@ backendSelect.addEventListener("change", async () => {
 window.addEventListener("popstate", renderRoute);
 
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-retry]")) {
+    await renderRoute();
+    return;
+  }
+
   const route = event.target.closest("a[data-route]");
   if (route && route.origin === location.origin) {
     event.preventDefault();

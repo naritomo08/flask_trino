@@ -110,7 +110,17 @@ export function errorState(message) {
 }
 
 export function renderError(message) {
-  document.querySelector("#app").innerHTML = `<section class="error-state page-error"><p class="eyebrow">APPLICATION ERROR</p><h1>画面を表示できませんでした</h1><p>${escapeHtml(message)}</p><a class="button-secondary" href="/" data-route>トップページへ戻る</a></section>`;
+  document.querySelector("#app").innerHTML = `
+    <section class="error-state page-error">
+      <div class="error-icon" aria-hidden="true">!</div>
+      <p class="eyebrow">CONNECTION ISSUE</p>
+      <h1>ログを読み込めませんでした</h1>
+      <p>${escapeHtml(message)}</p>
+      <div class="error-actions">
+        <button class="button-primary" type="button" data-retry>もう一度試す</button>
+        <a class="button-secondary" href="/health" data-route>稼働状況を確認</a>
+      </div>
+    </section>`;
 }
 
 function field(name, label, control) {

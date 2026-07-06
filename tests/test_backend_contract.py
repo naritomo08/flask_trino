@@ -72,6 +72,17 @@ def request_json(url, method="GET", payload=None, timeout=10):
         raise AssertionError(f"{url} returned HTTP {error.code}: {body}") from error
 
 
+def request_error_json(url, timeout=70):
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    try:
+        urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.HTTPError as error:
+        content_type = error.headers.get("Content-Type", "")
+        assert "application/json" in content_type
+        return error.code, json.loads(error.read().decode("utf-8"))
+    raise AssertionError(f"{url} unexpectedly succeeded")
+
+
 def test_backend_root_describes_common_endpoints(backend):
     name, base_url = backend
 
@@ -103,6 +114,21 @@ def test_backend_health_contract_is_common(backend):
     assert payload["trino_url"]
     assert payload["catalog"]
     assert payload["schema"]
+
+
+def test_backend_hides_internal_trino_errors(backend):
+    name, base_url = backend
+    _, health = request_json(base_url + "/health")
+    if health["ok"]:
+        pytest.skip("Trino is reachable")
+
+    status, payload = request_error_json(base_url + "/api/logs?size=1")
+
+    assert status == 502
+    assert payload == {
+        "error": "Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。",
+        "code": "trino_unavailable",
+    }
 
 
 @pytest.mark.skipif(

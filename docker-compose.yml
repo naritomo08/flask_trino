@@ -17,7 +17,7 @@ services:
     image: alpine:3.21
     command: ["chmod", "0777", "/logs"]
     volumes:
-      - frontend-access-logs:/logs
+      - frontend_access_logs:/logs
     restart: "no"
 
   access-log-api:
@@ -29,7 +29,7 @@ services:
       CONTAINER_NAME: trino-search-frontend
       HOST_NAME: ${ACCESS_LOG_HOST:-trino-host}
     volumes:
-      - frontend-access-logs:/var/log/trino-access:ro
+      - frontend_access_logs:/var/log/trino-access:ro
     healthcheck:
       test:
         - CMD
@@ -48,7 +48,7 @@ services:
     ports:
       - "8081:80"
     volumes:
-      - frontend-access-logs:/var/log/trino-access
+      - frontend_access_logs:/var/log/trino-access
     depends_on:
       access-log-init:
         condition: service_completed_successfully
@@ -73,14 +73,16 @@ services:
         tag: "{{.Name}}"
     restart: unless-stopped
 
-  access-log-maintenance:
-    image: alpine:3.21
+  access_log_maintenance:
+    image: alpine:3.20
+    environment:
+      ACCESS_LOG_RETENTION_DAYS: ${ACCESS_LOG_RETENTION_DAYS:-14}
     command:
       - /bin/sh
       - -c
-      - while true; do find /logs -type f -name 'access-*.jsonl' -mtime +${ACCESS_LOG_RETENTION_DAYS:-14} -delete; sleep 3600; done
+      - retention_minutes=$$((ACCESS_LOG_RETENTION_DAYS * 1440 - 1)); while true; do find /logs -type f -name 'access-*.jsonl' -mmin +$$retention_minutes -delete; sleep 3600; done
     volumes:
-      - frontend-access-logs:/logs
+      - frontend_access_logs:/logs
     restart: unless-stopped
 
   backend-python:
@@ -144,4 +146,4 @@ services:
     command: ["pytest", "/app/tests"]
 
 volumes:
-  frontend-access-logs:
+  frontend_access_logs:

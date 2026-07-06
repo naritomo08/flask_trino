@@ -30,6 +30,10 @@ import java.util.concurrent.Executors;
 
 public class App {
     static final List<String> LOG_TYPES = List.of("syslog", "authlog");
+    static final Map<String, String> TRINO_UNAVAILABLE = Map.of(
+            "error", "Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。",
+            "code", "trino_unavailable"
+    );
     static final ZoneId JST = ZoneId.of("Asia/Tokyo");
     static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss 'JST'", Locale.ROOT);
     static final ObjectMapper JSON = new ObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
@@ -111,7 +115,9 @@ public class App {
             payload.put("logs", result.logs);
             sendJson(exchange, 200, payload);
         } catch (Exception ex) {
-            sendJson(exchange, 502, Map.of("error", String.valueOf(ex.getMessage())));
+            System.err.printf("Trino log search failed: %s%n", ex.getMessage());
+            ex.printStackTrace(System.err);
+            sendJson(exchange, 502, TRINO_UNAVAILABLE);
         }
     }
 

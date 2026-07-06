@@ -15,13 +15,20 @@ export async function requestLogs(params) {
   Object.entries(params).forEach(([key, value]) => {
     if (value != null && String(value) !== "") query.set(key, value);
   });
-  const response = await fetch(`${apiPath("logs")}?${query}`, {
-    cache: "no-store",
-    headers: { Accept: "application/json" }
-  });
-  const payload = await readJson(response);
-  if (!response.ok) throw new Error(payload.error || "検索に失敗しました。");
-  return payload;
+  try {
+    const response = await fetch(`${apiPath("logs")}?${query}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    });
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(logSearchErrorMessage(response, payload));
+    return payload;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("ログ検索サービスに接続できませんでした。ネットワークとサービスの稼働状況を確認してください。");
+    }
+    throw error;
+  }
 }
 
 export async function requestHealth(key) {
@@ -87,4 +94,19 @@ function httpErrorMessage(response) {
     return "サービスを一時的に利用できません。しばらくしてから、もう一度お試しください。";
   }
   return response.statusText || "サーバーから正常な応答を受け取れませんでした。";
+}
+
+function logSearchErrorMessage(response, payload) {
+  if (response.status === 502) {
+    return "Trinoに接続できませんでした。Trinoの稼働状況を確認して、もう一度お試しください。";
+  }
+  if (response.status === 503 || response.status === 504) {
+    return httpErrorMessage(response);
+  }
+
+  const message = String(payload.error || "");
+  const containsInternalDetails = /Req\.TransportError|ehostunreach|Trino search failed|%[A-Z][\w.]*\{/.test(message);
+  return containsInternalDetails
+    ? "Trinoとの通信中に問題が発生しました。稼働状況を確認して、もう一度お試しください。"
+    : message || "検索に失敗しました。もう一度お試しください。";
 }

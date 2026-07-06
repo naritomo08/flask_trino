@@ -17,6 +17,10 @@ class LogSearchApp < Sinatra::Base
   TRINO_TIMESTAMP_COLUMN = ENV.fetch("TRINO_TIMESTAMP_COLUMN", "ts")
   TRINO_TIMESTAMP_EXPRESSION = ENV.fetch("TRINO_TIMESTAMP_EXPRESSION", "")
   LOG_TYPES = %w[syslog authlog].freeze
+  TRINO_UNAVAILABLE = {
+    error: "Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。",
+    code: "trino_unavailable"
+  }.freeze
 
   get "/" do
     json_response(
@@ -58,8 +62,9 @@ class LogSearchApp < Sinatra::Base
     result = search_logs_page(client, filters)
     json_response(filters: filters, **result)
   rescue StandardError => e
+    warn "Trino log search failed: #{e.full_message}"
     status 502
-    json_response(error: e.message)
+    json_response(TRINO_UNAVAILABLE)
   end
 
   def json_response(payload)

@@ -6,6 +6,11 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
 
+const TRINO_UNAVAILABLE = [
+    'error' => 'Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。',
+    'code' => 'trino_unavailable',
+];
+
 function normalize_filters(array $args): array
 {
     return [
@@ -88,7 +93,8 @@ function create_app(): \Slim\App
             $result = search_logs_page($filters, $config);
             return json_response($response, ['filters' => $filters, ...$result]);
         } catch (Throwable $error) {
-            return json_response($response, ['error' => $error->getMessage()], 502);
+            error_log('Trino log search failed: ' . $error);
+            return json_response($response, TRINO_UNAVAILABLE, 502);
         }
     });
 

@@ -2,6 +2,7 @@ defmodule ElixirElastic.Router do
   @moduledoc false
 
   use Plug.Router
+  require Logger
 
   alias ElixirElastic.TrinoSearch
 
@@ -94,7 +95,13 @@ defmodule ElixirElastic.Router do
       result = TrinoSearch.search_logs_page(filters)
       json(conn, Map.put(result, :filters, filters))
     rescue
-      exception -> json(conn, 502, %{error: Exception.message(exception)})
+      exception ->
+        Logger.warning("Trino log search failed: #{Exception.message(exception)}")
+
+        json(conn, 502, %{
+          error: "Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。",
+          code: "trino_unavailable"
+        })
     end
   end
 

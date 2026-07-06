@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -12,6 +13,11 @@ import (
 
 type App struct {
 	client TrinoExecutor
+}
+
+var trinoUnavailable = map[string]any{
+	"error": "Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。",
+	"code":  "trino_unavailable",
 }
 
 func NewApp(client TrinoExecutor) (*App, error) {
@@ -72,7 +78,8 @@ func (a *App) apiSearchLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	logs, total, err := searchLogsPage(r.Context(), a.client, filters)
 	if err != nil {
-		writeJSONStatus(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		log.Printf("Trino log search failed: %v", err)
+		writeJSONStatus(w, http.StatusBadGateway, trinoUnavailable)
 		return
 	}
 

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -6,6 +8,12 @@ from backend_factory import create_backend
 
 app = FastAPI()
 backend = create_backend()
+logger = logging.getLogger(__name__)
+
+TRINO_UNAVAILABLE = {
+    "error": "Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。",
+    "code": "trino_unavailable",
+}
 
 
 def get_backend():
@@ -74,6 +82,7 @@ async def api_search_logs(request: Request):
     filters = await filters_from_request(request)
     try:
         result = get_backend().search_logs_page(filters)
-    except Exception as error:
-        return JSONResponse({"error": str(error)}, status_code=502)
+    except Exception:
+        logger.exception("Trino log search failed")
+        return JSONResponse(TRINO_UNAVAILABLE, status_code=502)
     return {"filters": filters, **result}
