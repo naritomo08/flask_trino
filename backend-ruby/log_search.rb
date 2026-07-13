@@ -79,14 +79,14 @@ module LogSearch
     ]
     conditions << match_condition("host", filters["host"]) unless filters["host"].empty?
     conditions << match_condition("program", filters["program"]) unless filters["program"].empty?
-    conditions << like_condition("message", filters["message"]) unless filters["message"].empty?
+    conditions << like_condition("msg", filters["message"]) unless filters["message"].empty?
 
     <<~SQL.chomp
       SELECT
         #{timestamp_sql} AS event_time,
         CAST(#{quoted_identifier("host")} AS varchar) AS host,
         CAST(#{quoted_identifier("program")} AS varchar) AS program,
-        CAST(#{quoted_identifier("message")} AS varchar) AS msg,
+        CAST(#{quoted_identifier("msg")} AS varchar) AS msg,
         #{sql_string(log_type)} AS log_type
       FROM #{table_for_log_type(log_type)}
       WHERE #{conditions.join(" AND ")}

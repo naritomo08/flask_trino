@@ -223,13 +223,13 @@ def select_for_log_type(log_type, filters):
     if filters["program"]:
         conditions.append(match_condition("program", filters["program"]))
     if filters["message"]:
-        conditions.append(like_condition("message", filters["message"]))
+        conditions.append(like_condition("msg", filters["message"]))
 
     return f"""SELECT
   {timestamp_sql} AS event_time,
   CAST({quoted_identifier("host")} AS varchar) AS host,
   CAST({quoted_identifier("program")} AS varchar) AS program,
-  CAST({quoted_identifier("message")} AS varchar) AS msg,
+  CAST({quoted_identifier("msg")} AS varchar) AS msg,
   {sql_string(log_type)} AS log_type
 FROM {table_for_log_type(log_type)}
 WHERE {" AND ".join(conditions)}"""
