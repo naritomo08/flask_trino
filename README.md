@@ -47,7 +47,7 @@ java -jar target/flask-trino-1.0.0.jar
 - `ts`: ログ時刻
 - `host`: ホスト名
 - `program`: プログラム名
-- `message`: メッセージ
+- `msg`: メッセージ
 
 カラム名やテーブル名が違う場合は環境変数で変更してください。
 時刻カラムが文字列などでそのまま比較できない場合は、`TRINO_TIMESTAMP_EXPRESSION` に Trino の SQL 式を設定できます。

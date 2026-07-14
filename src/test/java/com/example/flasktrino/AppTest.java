@@ -49,7 +49,8 @@ class AppTest {
         assertTrue(query.contains("\"ts\" <= TIMESTAMP '2026-06-02 21:00:00'"));
         assertTrue(query.contains("lower(CAST(\"host\" AS varchar)) = lower('flink1')"));
         assertTrue(query.contains("lower(CAST(\"program\" AS varchar)) = lower('systemd')"));
-        assertTrue(query.contains("lower(CAST(\"message\" AS varchar)) LIKE lower('%sshd%') ESCAPE '!'"));
+        assertTrue(query.contains("CAST(\"msg\" AS varchar) AS msg"));
+        assertTrue(query.contains("lower(CAST(\"msg\" AS varchar)) LIKE lower('%sshd%') ESCAPE '!'"));
         assertTrue(query.contains("ORDER BY event_time DESC"));
         assertTrue(query.contains("LIMIT 50"));
     }

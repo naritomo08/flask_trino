@@ -202,7 +202,7 @@ public class App {
             conditions.add(equalsCondition("program", filters.program));
         }
         if (!filters.message.isBlank()) {
-            conditions.add(likeCondition("message", filters.message));
+            conditions.add(likeCondition("msg", filters.message));
         }
 
         return """
@@ -210,7 +210,7 @@ public class App {
                   %s AS event_time,
                   CAST("host" AS varchar) AS host,
                   CAST("program" AS varchar) AS program,
-                  CAST("message" AS varchar) AS msg,
+                  CAST("msg" AS varchar) AS msg,
                   %s AS log_type
                 FROM %s
                 WHERE %s""".formatted(
