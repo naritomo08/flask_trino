@@ -35,7 +35,7 @@ Flask アプリだけを Docker で起動します。Trino / Iceberg / 収集基
 - `ts`: ログ時刻
 - `host`: ホスト名
 - `program`: プログラム名
-- `message`: メッセージ
+- `msg`: メッセージ
 
 カラム名やテーブル名が違う場合は環境変数で変更してください。
 時刻カラムが文字列などでそのまま比較できない場合は、`TRINO_TIMESTAMP_EXPRESSION` に Trino の SQL 式を設定できます。
@@ -103,6 +103,7 @@ docker compose run --rm web pytest
 - `TRINO_AUTHLOG_TABLE`: authlog 検索対象テーブル
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
+- `TRINO_MESSAGE_COLUMN`: メッセージカラム（デフォルト: `msg`）
 - `TRINO_LIMIT`: 最大取得件数
 - `FLASK_SECRET_KEY`: 画面検索条件をセッションに保存するための秘密鍵
 
@@ -117,6 +118,7 @@ environment:
   TRINO_SYSLOG_TABLE: syslog_events
   TRINO_AUTHLOG_TABLE: authlog_events
   TRINO_TIMESTAMP_COLUMN: ts
+  TRINO_MESSAGE_COLUMN: msg
   FLASK_SECRET_KEY: change-me
 extra_hosts:
   - "trino1:192.168.11.18"

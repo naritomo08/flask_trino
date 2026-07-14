@@ -15,6 +15,7 @@ TRINO_SYSLOG_TABLE = os.getenv("TRINO_SYSLOG_TABLE", "syslog_events")
 TRINO_AUTHLOG_TABLE = os.getenv("TRINO_AUTHLOG_TABLE", "authlog_events")
 TRINO_TIMESTAMP_COLUMN = os.getenv("TRINO_TIMESTAMP_COLUMN", "ts")
 TRINO_TIMESTAMP_EXPRESSION = os.getenv("TRINO_TIMESTAMP_EXPRESSION", "")
+TRINO_MESSAGE_COLUMN = os.getenv("TRINO_MESSAGE_COLUMN", "msg")
 DEFAULT_LIMIT = int(os.getenv("TRINO_LIMIT", "50"))
 LOG_TYPES = ["syslog", "authlog"]
 JST = timezone(timedelta(hours=9), "JST")
@@ -203,13 +204,13 @@ def select_for_log_type(log_type, filters):
     if filters["program"]:
         conditions.append(equals_condition("program", filters["program"]))
     if filters["message"]:
-        conditions.append(like_condition("message", filters["message"]))
+        conditions.append(like_condition(TRINO_MESSAGE_COLUMN, filters["message"]))
 
     return f"""SELECT
   {timestamp_sql} AS event_time,
   CAST({quoted_identifier("host")} AS varchar) AS host,
   CAST({quoted_identifier("program")} AS varchar) AS program,
-  CAST({quoted_identifier("message")} AS varchar) AS msg,
+  CAST({quoted_identifier(TRINO_MESSAGE_COLUMN)} AS varchar) AS msg,
   {sql_string(log_type)} AS log_type
 FROM {table_for_log_type(log_type)}
 WHERE {" AND ".join(conditions)}"""

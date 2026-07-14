@@ -81,7 +81,8 @@ def test_build_query_with_message_program_host_and_time_range(fake_client):
     assert '"ts" <= TIMESTAMP \'2026-06-02 21:00:00\'' in query
     assert 'lower(CAST("host" AS varchar)) = lower(\'flink1\')' in query
     assert 'lower(CAST("program" AS varchar)) = lower(\'systemd\')' in query
-    assert 'lower(CAST("message" AS varchar)) LIKE lower(\'%sshd%\') ESCAPE \'!\'' in query
+    assert 'lower(CAST("msg" AS varchar)) LIKE lower(\'%sshd%\') ESCAPE \'!\'' in query
+    assert 'CAST("msg" AS varchar) AS msg' in query
     assert "ORDER BY event_time DESC" in query
     assert "LIMIT 50" in query
 
