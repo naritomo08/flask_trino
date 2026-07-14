@@ -68,14 +68,14 @@ defmodule ElixirElastic.QueryBuilder do
       ]
       |> append_match(filters["host"], "host")
       |> append_match(filters["program"], "program")
-      |> append_like(filters["message"], "message")
+      |> append_like(filters["message"], "msg")
 
     """
     SELECT
       #{timestamp_sql} AS event_time,
       CAST(#{quoted_identifier("host")} AS varchar) AS host,
       CAST(#{quoted_identifier("program")} AS varchar) AS program,
-      CAST(#{quoted_identifier("message")} AS varchar) AS msg,
+      CAST(#{quoted_identifier("msg")} AS varchar) AS msg,
       #{sql_string(log_type)} AS log_type
     FROM #{table_for_log_type(log_type)}
     WHERE #{Enum.join(conditions, " AND ")}

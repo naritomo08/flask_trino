@@ -153,14 +153,14 @@ function select_for_log_type(string $logType, array $filters, array $config): st
         $conditions[] = match_condition('program', $filters['program']);
     }
     if ($filters['message'] !== '') {
-        $conditions[] = like_condition('message', $filters['message']);
+        $conditions[] = like_condition('msg', $filters['message']);
     }
 
     return "SELECT
   {$timestampSql} AS event_time,
   CAST(" . quoted_identifier('host') . " AS varchar) AS host,
   CAST(" . quoted_identifier('program') . " AS varchar) AS program,
-  CAST(" . quoted_identifier('message') . " AS varchar) AS msg,
+  CAST(" . quoted_identifier('msg') . " AS varchar) AS msg,
   " . sql_string($logType) . " AS log_type
 FROM " . table_for_log_type($logType, $config) . '
 WHERE ' . implode(' AND ', $conditions);

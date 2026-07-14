@@ -94,7 +94,7 @@ func selectForLogType(logType string, filters Filters) string {
 		conditions = append(conditions, matchCondition("program", filters.Program))
 	}
 	if filters.Message != "" {
-		conditions = append(conditions, likeCondition("message", filters.Message))
+		conditions = append(conditions, likeCondition("msg", filters.Message))
 	}
 
 	return fmt.Sprintf(`SELECT
@@ -104,7 +104,7 @@ func selectForLogType(logType string, filters Filters) string {
   CAST(%s AS varchar) AS msg,
   %s AS log_type
 FROM %s
-WHERE %s`, timestampSQL, quotedIdentifier("host"), quotedIdentifier("program"), quotedIdentifier("message"),
+WHERE %s`, timestampSQL, quotedIdentifier("host"), quotedIdentifier("program"), quotedIdentifier("msg"),
 		sqlString(logType), tableForLogType(logType), strings.Join(conditions, " AND "))
 }
 
