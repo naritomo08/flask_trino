@@ -82,7 +82,9 @@ func TestBuildQueryWithMessageProgramHostAndTimeRange(t *testing.T) {
 	assertNotContains(t, query, `FROM "iceberg"."logs"."authlog_events"`)
 	assertContains(t, query, `lower(CAST("host" AS varchar)) = lower('flink1')`)
 	assertContains(t, query, `lower(CAST("program" AS varchar)) = lower('systemd')`)
-	assertContains(t, query, `lower(CAST("message" AS varchar)) LIKE lower('%sshd%') ESCAPE '!'`)
+	assertContains(t, query, `CAST("msg" AS varchar) AS msg`)
+	assertContains(t, query, `lower(CAST("msg" AS varchar)) LIKE lower('%sshd%') ESCAPE '!'`)
+	assertNotContains(t, query, `"message"`)
 	assertContains(t, query, "ORDER BY event_time DESC")
 	assertContains(t, query, "LIMIT 50")
 }
