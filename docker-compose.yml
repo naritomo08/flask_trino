@@ -13,5 +13,6 @@ services:
       TRINO_AUTHLOG_TABLE: authlog_events
       TRINO_TIMESTAMP_COLUMN: ts
       TRINO_TIMESTAMP_EXPRESSION:
+      TRINO_MESSAGE_COLUMN: msg
     extra_hosts:
       - "trino1:192.168.11.18"

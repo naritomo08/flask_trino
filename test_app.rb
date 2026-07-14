@@ -88,7 +88,8 @@ class LogSearchAppTest < Minitest::Test
     assert_includes query, %("ts" <= TIMESTAMP '2026-06-02 21:00:00')
     assert_includes query, %(lower(CAST("host" AS varchar)) = lower('flink1'))
     assert_includes query, %(lower(CAST("program" AS varchar)) = lower('systemd'))
-    assert_includes query, %(lower(CAST("message" AS varchar)) LIKE lower('%sshd%') ESCAPE '!')
+    assert_includes query, %(lower(CAST("msg" AS varchar)) LIKE lower('%sshd%') ESCAPE '!')
+    assert_includes query, %(CAST("msg" AS varchar) AS msg)
     assert_includes query, "ORDER BY event_time DESC"
     assert_includes query, "LIMIT 50"
   end

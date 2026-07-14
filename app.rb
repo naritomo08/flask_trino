@@ -91,6 +91,7 @@ class LogSearchApp < Sinatra::Base
   TRINO_AUTHLOG_TABLE = ENV.fetch("TRINO_AUTHLOG_TABLE", "authlog_events")
   TRINO_TIMESTAMP_COLUMN = ENV.fetch("TRINO_TIMESTAMP_COLUMN", "ts")
   TRINO_TIMESTAMP_EXPRESSION = ENV.fetch("TRINO_TIMESTAMP_EXPRESSION", "")
+  TRINO_MESSAGE_COLUMN = ENV.fetch("TRINO_MESSAGE_COLUMN", "msg")
   DEFAULT_LIMIT = Integer(ENV.fetch("TRINO_LIMIT", "50"))
   LOG_TYPES = %w[syslog authlog].freeze
   JST_OFFSET = "+09:00"
@@ -209,14 +210,14 @@ class LogSearchApp < Sinatra::Base
     ]
     conditions << equals_condition("host", filters["host"]) unless filters["host"].empty?
     conditions << equals_condition("program", filters["program"]) unless filters["program"].empty?
-    conditions << like_condition("message", filters["message"]) unless filters["message"].empty?
+    conditions << like_condition(TRINO_MESSAGE_COLUMN, filters["message"]) unless filters["message"].empty?
 
     <<~SQL.chomp
       SELECT
         #{timestamp_sql} AS event_time,
         CAST(#{quoted_identifier("host")} AS varchar) AS host,
         CAST(#{quoted_identifier("program")} AS varchar) AS program,
-        CAST(#{quoted_identifier("message")} AS varchar) AS msg,
+        CAST(#{quoted_identifier(TRINO_MESSAGE_COLUMN)} AS varchar) AS msg,
         #{sql_string(log_type)} AS log_type
       FROM #{table_for_log_type(log_type)}
       WHERE #{conditions.join(" AND ")}
