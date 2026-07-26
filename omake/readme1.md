@@ -119,7 +119,7 @@ curl -fsS -X PUT "${ES_URL}/_ilm/policy/logs-access-trino-14d-policy" \
 curl -fsS -X PUT "${ES_URL}/_index_template/logs_access_trino_template" \
   -H "Content-Type: application/json" \
   -d "{
-    \"index_patterns\": [\"${DATA_STREAM}*\"],
+    \"index_patterns\": [\"${DATA_STREAM}\"],
     \"priority\": 2000,
     \"data_stream\": {},
     \"template\": {
