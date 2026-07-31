@@ -61,12 +61,43 @@ func searchLogsPage(ctx context.Context, client TrinoExecutor, filters Filters) 
 }
 
 func buildQuery(filters Filters) string {
-	return fmt.Sprintf("SELECT logs.*, count(*) OVER() AS total_count FROM (\n%s\n) logs\nORDER BY event_time DESC\nOFFSET %d\nLIMIT %d",
+	selectList := "logs.*, count(*) OVER() AS total_count"
+	if filters.SkipTotal {
+		selectList = "logs.*"
+	}
+	return fmt.Sprintf("SELECT %s FROM (\n%s\n) logs\nORDER BY event_time DESC\nOFFSET %d\nLIMIT %d", selectList,
 		unionQuery(filters), (filters.Page-1)*filters.Size, filters.Size)
 }
 
 func buildCountQuery(filters Filters) string {
 	return fmt.Sprintf("SELECT count(*) AS total FROM (\n%s\n) logs", unionQuery(filters))
+}
+
+func buildSummaryQuery(date string) string {
+	target := time.Now().In(jst)
+	if parsed, err := time.ParseInLocation("2006-01-02", date, jst); err == nil {
+		target = parsed
+	}
+	day := sqlString(target.Format("2006-01-02"))
+	return fmt.Sprintf("SELECT COALESCE(sum(total), 0) AS total FROM (\nSELECT COALESCE(sum(cnt), 0) AS total FROM %s WHERE dt = DATE %s\nUNION ALL\nSELECT COALESCE(sum(cnt), 0) AS total FROM %s WHERE dt = DATE %s\n) summaries",
+		tableExpr(trinoSyslogHost1mTable), day, tableExpr(trinoAuthlogHost1mTable), day)
+}
+
+func getLogTotal(ctx context.Context, client TrinoExecutor, date string) (int, error) {
+	rows, _, err := client.Execute(ctx, buildSummaryQuery(date), 60*time.Second)
+	if err != nil || len(rows) == 0 || len(rows[0]) == 0 {
+		return 0, err
+	}
+	switch value := rows[0][0].(type) {
+	case float64:
+		return int(value), nil
+	case json.Number:
+		total, _ := strconvAtoi(value.String())
+		return total, nil
+	default:
+		total, _ := strconvAtoi(fmt.Sprint(value))
+		return total, nil
+	}
 }
 
 func unionQuery(filters Filters) string {

@@ -15,6 +15,8 @@ function app_config(): array
         'trino_schema' => getenv('TRINO_SCHEMA') ?: 'logs',
         'trino_syslog_table' => getenv('TRINO_SYSLOG_TABLE') ?: 'syslog_events',
         'trino_authlog_table' => getenv('TRINO_AUTHLOG_TABLE') ?: 'authlog_events',
+        'trino_syslog_host_1m_table' => getenv('TRINO_SYSLOG_HOST_1M_TABLE') ?: 'syslog_host_1m',
+        'trino_authlog_host_1m_table' => getenv('TRINO_AUTHLOG_HOST_1M_TABLE') ?: 'authlog_host_1m',
         'trino_timestamp_column' => getenv('TRINO_TIMESTAMP_COLUMN') ?: 'ts',
         'trino_timestamp_expression' => getenv('TRINO_TIMESTAMP_EXPRESSION') ?: '',
     ];

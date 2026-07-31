@@ -44,7 +44,7 @@ export function searchForm(params, className = "") {
 export function homeLogsMarkup(logs) {
   return logs.length
     ? `<div class="log-grid">${logs.map(homeLogCard).join("")}</div>`
-    : emptyState("ログがありません", "対象日のログがまだ登録されていません。");
+    : emptyState("ログがありません", "直近1時間のログはまだ登録されていません。");
 }
 
 export function resultCard(log, index, keyword, currentParams = "") {

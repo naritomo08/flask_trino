@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type App struct {
@@ -30,7 +31,26 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("/health", a.health)
 	mux.HandleFunc("/api/options", a.apiOptions)
 	mux.HandleFunc("/api/logs", a.apiSearchLogs)
+	mux.HandleFunc("/api/summary", a.apiSummary)
 	return mux
+}
+
+func (a *App) apiSummary(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	date := strings.TrimSpace(r.URL.Query().Get("date"))
+	total, err := getLogTotal(r.Context(), a.client, date)
+	if err != nil {
+		log.Printf("Trino log summary failed: %v", err)
+		writeJSONStatus(w, http.StatusBadGateway, trinoUnavailable)
+		return
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		date = time.Now().In(jst).Format("2006-01-02")
+	}
+	writeJSON(w, map[string]any{"date": date, "total": total})
 }
 
 func (a *App) index(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +60,7 @@ func (a *App) index(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, map[string]any{
 		"service":   "go-trino-backend",
-		"endpoints": []string{"/health", "/api/options", "/api/logs"},
+		"endpoints": []string{"/health", "/api/options", "/api/logs", "/api/summary"},
 	})
 }
 
@@ -124,6 +144,7 @@ func filtersFromValues(values map[string][]string) Filters {
 		Date: get("date"), TimeFrom: get("time_from"), TimeTo: get("time_to"),
 		LogType: get("log_type"), Host: get("host"), Program: get("program"), Message: get("message"),
 		Page: parsePositiveInt(get("page"), 1), Size: parsePositiveInt(get("size"), 25),
+		SkipTotal: get("skip_total") == "1" || strings.EqualFold(get("skip_total"), "true"),
 	})
 }
 
@@ -143,7 +164,7 @@ func normalizeFilters(filters Filters) Filters {
 		Date: strings.TrimSpace(filters.Date), TimeFrom: strings.TrimSpace(filters.TimeFrom),
 		TimeTo: strings.TrimSpace(filters.TimeTo), LogType: strings.TrimSpace(filters.LogType),
 		Host: strings.TrimSpace(filters.Host), Program: strings.TrimSpace(filters.Program),
-		Message: strings.TrimSpace(filters.Message), Page: page, Size: size,
+		Message: strings.TrimSpace(filters.Message), Page: page, Size: size, SkipTotal: filters.SkipTotal,
 	}
 }
 

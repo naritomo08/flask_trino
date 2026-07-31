@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from backend_factory import create_backend
+from trino_backend import get_log_total
 
 
 app = FastAPI()
@@ -31,6 +32,7 @@ def normalize_filters(args):
         "message": str(args.get("message", "")).strip(),
         "page": positive_int(args.get("page"), 1),
         "size": min(positive_int(args.get("size"), 25), 100),
+        "skip_total": str(args.get("skip_total", "")).lower() in ("1", "true"),
     }
 
 
@@ -59,7 +61,7 @@ async def filters_from_request(request: Request):
 def index():
     return {
         "service": "python-trino-backend",
-        "endpoints": ["/health", "/api/options", "/api/logs"],
+        "endpoints": ["/health", "/api/options", "/api/logs", "/api/summary"],
     }
 
 
@@ -86,3 +88,12 @@ async def api_search_logs(request: Request):
         logger.exception("Trino log search failed")
         return JSONResponse(TRINO_UNAVAILABLE, status_code=502)
     return {"filters": filters, **result}
+
+
+@app.get("/api/summary")
+def api_summary(date: str = ""):
+    try:
+        return get_log_total(get_backend().client_factory(), date.strip())
+    except Exception:
+        logger.exception("Trino log summary failed")
+        return JSONResponse(TRINO_UNAVAILABLE, status_code=502)

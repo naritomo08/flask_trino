@@ -60,6 +60,7 @@ public class App {
         server.createContext("/health", this::handleHealth);
         server.createContext("/api/options", this::handleApiOptions);
         server.createContext("/api/logs", this::handleApiLogs);
+        server.createContext("/api/summary", this::handleApiSummary);
         server.setExecutor(Executors.newFixedThreadPool(16));
         server.start();
         System.out.printf("listening on :%s%n", config.port);
@@ -72,7 +73,7 @@ public class App {
         }
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("service", "java-trino-backend");
-        payload.put("endpoints", List.of("/health", "/api/options", "/api/logs"));
+        payload.put("endpoints", List.of("/health", "/api/options", "/api/logs", "/api/summary"));
         sendJson(exchange, 200, payload);
     }
 
@@ -121,6 +122,28 @@ public class App {
         }
     }
 
+    private void handleApiSummary(HttpExchange exchange) throws IOException {
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            sendText(exchange, 405, "method not allowed", "text/plain; charset=utf-8");
+            return;
+        }
+        Map<String, String> params = parseQuery(exchange.getRequestURI().getRawQuery());
+        LocalDate date;
+        try {
+            date = LocalDate.parse(trim(params.get("date")));
+        } catch (DateTimeParseException ex) {
+            date = LocalDate.now(clock.withZone(JST));
+        }
+        try {
+            QueryResult result = queryClient.execute(buildSummaryQuery(config, date));
+            long total = result.rows.isEmpty() ? 0 : Long.parseLong(String.valueOf(result.rows.get(0).get(0)));
+            sendJson(exchange, 200, Map.of("date", date.toString(), "total", total));
+        } catch (Exception ex) {
+            System.err.printf("Trino log summary failed: %s%n", ex.getMessage());
+            sendJson(exchange, 502, TRINO_UNAVAILABLE);
+        }
+    }
+
     static List<LogRecord> searchLogs(QueryClient client, Config config, Filters filters, Clock clock) throws Exception {
         QueryResult result = client.execute(buildQuery(config, filters, clock));
         return rowsToLogs(result, config, filters);
@@ -159,7 +182,8 @@ public class App {
     }
 
     static String buildQuery(Config config, Filters filters, Clock clock) {
-        return "SELECT logs.*, count(*) OVER() AS total_count FROM (\n"
+        String selectList = filters.skipTotal ? "logs.*" : "logs.*, count(*) OVER() AS total_count";
+        return "SELECT " + selectList + " FROM (\n"
                 + unionQuery(config, filters, clock)
                 + "\n) logs\nORDER BY event_time DESC\nOFFSET "
                 + ((filters.page - 1) * filters.size)
@@ -169,6 +193,15 @@ public class App {
 
     static String buildCountQuery(Config config, Filters filters, Clock clock) {
         return "SELECT count(*) AS total FROM (\n" + unionQuery(config, filters, clock) + "\n) logs";
+    }
+
+    static String buildSummaryQuery(Config config, LocalDate date) {
+        String day = sqlString(date.toString());
+        return "SELECT COALESCE(sum(total), 0) AS total FROM (\n"
+                + "SELECT COALESCE(sum(cnt), 0) AS total FROM " + tableExpr(config, config.trinoSyslogHost1mTable) + " WHERE dt = DATE " + day
+                + "\nUNION ALL\n"
+                + "SELECT COALESCE(sum(cnt), 0) AS total FROM " + tableExpr(config, config.trinoAuthlogHost1mTable) + " WHERE dt = DATE " + day
+                + "\n) summaries";
     }
 
     static String unionQuery(Config config, Filters filters, Clock clock) {
@@ -364,7 +397,8 @@ public class App {
                 trim(values.get("program")),
                 trim(values.get("message")),
                 positiveInt(values.get("page"), 1),
-                Math.min(positiveInt(values.get("size"), 25), 100)
+                Math.min(positiveInt(values.get("size"), 25), 100),
+                booleanValue(values.get("skip_total"))
         );
     }
 
@@ -378,8 +412,13 @@ public class App {
                 trim(filters.program),
                 trim(filters.message),
                 filters.page > 0 ? filters.page : 1,
-                filters.size > 0 ? Math.min(filters.size, 100) : 25
+                filters.size > 0 ? Math.min(filters.size, 100) : 25,
+                filters.skipTotal
         );
+    }
+
+    static boolean booleanValue(String value) {
+        return "1".equals(trim(value)) || "true".equalsIgnoreCase(trim(value));
     }
 
     static int positiveInt(String value, int fallback) {
@@ -403,7 +442,7 @@ public class App {
             try (InputStream body = exchange.getRequestBody()) {
                 byte[] bytes = body.readAllBytes();
                 if (bytes.length == 0) {
-                    return new Filters("", "", "", "", "", "", "", 1, 25);
+                    return new Filters("", "", "", "", "", "", "", 1, 25, false);
                 }
                 return normalizeFilters(JSON.readValue(bytes, Filters.class));
             }
@@ -471,6 +510,8 @@ public class App {
             String trinoSchema,
             String trinoSyslogTable,
             String trinoAuthlogTable,
+            String trinoSyslogHost1mTable,
+            String trinoAuthlogHost1mTable,
             String trinoTimestampColumn,
             String trinoTimestampExpression
     ) {
@@ -484,6 +525,8 @@ public class App {
                     getenv("TRINO_SCHEMA", "logs"),
                     getenv("TRINO_SYSLOG_TABLE", "syslog_events"),
                     getenv("TRINO_AUTHLOG_TABLE", "authlog_events"),
+                    getenv("TRINO_SYSLOG_HOST_1M_TABLE", "syslog_host_1m"),
+                    getenv("TRINO_AUTHLOG_HOST_1M_TABLE", "authlog_host_1m"),
                     getenv("TRINO_TIMESTAMP_COLUMN", "ts"),
                     System.getenv().getOrDefault("TRINO_TIMESTAMP_EXPRESSION", "")
             );
@@ -499,7 +542,8 @@ public class App {
             String program,
             String message,
             int page,
-            int size
+            int size,
+            boolean skipTotal
     ) {
     }
 

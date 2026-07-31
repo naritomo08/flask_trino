@@ -13,6 +13,8 @@ TRINO_CATALOG = os.getenv("TRINO_CATALOG", "iceberg")
 TRINO_SCHEMA = os.getenv("TRINO_SCHEMA", "logs")
 TRINO_SYSLOG_TABLE = os.getenv("TRINO_SYSLOG_TABLE", "syslog_events")
 TRINO_AUTHLOG_TABLE = os.getenv("TRINO_AUTHLOG_TABLE", "authlog_events")
+TRINO_SYSLOG_HOST_1M_TABLE = os.getenv("TRINO_SYSLOG_HOST_1M_TABLE", "syslog_host_1m")
+TRINO_AUTHLOG_HOST_1M_TABLE = os.getenv("TRINO_AUTHLOG_HOST_1M_TABLE", "authlog_host_1m")
 TRINO_TIMESTAMP_COLUMN = os.getenv("TRINO_TIMESTAMP_COLUMN", "ts")
 TRINO_TIMESTAMP_EXPRESSION = os.getenv("TRINO_TIMESTAMP_EXPRESSION", "")
 LOG_TYPES = ["syslog", "authlog"]
@@ -203,11 +205,21 @@ def build_query(filters):
     size = min(positive_int(filters.get("size"), 25), 100)
     page = positive_int(filters.get("page"), 1)
     offset = (page - 1) * size
-    return f"SELECT logs.*, count(*) OVER() AS total_count FROM (\n{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET {offset}\nLIMIT {size}"
+    select = "logs.*" if filters.get("skip_total") else "logs.*, count(*) OVER() AS total_count"
+    return f"SELECT {select} FROM (\n{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET {offset}\nLIMIT {size}"
 
 
 def build_count_query(filters):
     return f"SELECT count(*) AS total FROM (\n{union_query(filters)}\n) logs"
+
+
+def build_summary_query(date):
+    day = sql_string(date.isoformat())
+    return f"""SELECT COALESCE(sum(total), 0) AS total FROM (
+SELECT COALESCE(sum(cnt), 0) AS total FROM {table_expr(TRINO_SYSLOG_HOST_1M_TABLE)} WHERE dt = DATE {day}
+UNION ALL
+SELECT COALESCE(sum(cnt), 0) AS total FROM {table_expr(TRINO_AUTHLOG_HOST_1M_TABLE)} WHERE dt = DATE {day}
+) summaries"""
 
 
 def select_for_log_type(log_type, filters):
@@ -333,3 +345,10 @@ def search_logs_page(client, filters):
         "total_pages": max(1, (total + size - 1) // size),
         "logs": logs,
     }
+
+
+def get_log_total(client, date_value):
+    filters = {"date": date_value}
+    date = target_date(filters)
+    rows, _columns = client.execute(build_summary_query(date), timeout=60)
+    return {"date": date.isoformat(), "total": int(rows[0][0]) if rows else 0}

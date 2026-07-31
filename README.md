@@ -115,7 +115,7 @@ Nginxのアクセスログはsyslogとは別に名前付きボリューム
 
 ## フロントエンド機能
 
-- 本日のログ総数と最近のログを5秒ごとに自動更新するトップ画面
+- 直近1時間の最新ログを30秒ごとに軽量取得するトップ画面
 - 対象日、時間帯、ログ種別、ホスト、プログラム、メッセージ検索
 - ホスト・プログラムの正規表現検索（例: `/^web\d+$/`。`/` で囲まない場合は完全一致）
 - メッセージ検索を主入力とし、その他の条件を折りたためる検索フォーム
@@ -158,10 +158,18 @@ curl -X POST http://localhost:8081/api/python/logs \
 
 レスポンスには `total`、`page`、`size`、`total_pages`、`logs` が含まれます。
 
+`skip_total=1` を指定すると総件数の集計を省略し、指定件数のみを取得できます。トップ画面では検索範囲を直近1時間に限定したうえで、この軽量モードを使用します。
+
 ヘルスチェック:
 
 ```bash
 curl http://localhost:8081/health/python
+```
+
+トップ画面用の日次ログ総数（`syslog_host_1m` / `authlog_host_1m` の `cnt` 合計）:
+
+```bash
+curl "http://localhost:8081/api/python/summary?date=2026-06-19"
 ```
 
 アクセスログ:
@@ -186,6 +194,8 @@ curl "http://localhost:8081/api/access-logs?date=2026-06-23&full=1"
 - `TRINO_SCHEMA`: Trino schema
 - `TRINO_SYSLOG_TABLE`: syslog 検索対象テーブル
 - `TRINO_AUTHLOG_TABLE`: authlog 検索対象テーブル
+- `TRINO_SYSLOG_HOST_1M_TABLE`: syslogの日次総数に使う1分集計テーブル
+- `TRINO_AUTHLOG_HOST_1M_TABLE`: authlogの日次総数に使う1分集計テーブル
 - `TRINO_TIMESTAMP_COLUMN`: ログ時刻カラム
 - `TRINO_TIMESTAMP_EXPRESSION`: ログ時刻の SQL 式。指定時は `TRINO_TIMESTAMP_COLUMN` より優先
 - `TRINO_HOST_ALIAS`: `extra_hosts` に登録する Trino のホスト名

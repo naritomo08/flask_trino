@@ -10,6 +10,7 @@ defmodule ElixirElastic.TrinoSearch do
   def log_types, do: @log_types
   def build_query(filters), do: QueryBuilder.build_query(filters)
   def build_count_query(filters), do: QueryBuilder.build_count_query(filters)
+  def build_summary_query(date), do: QueryBuilder.build_summary_query(date)
   def today_jst, do: QueryBuilder.today_jst()
   def time_bound(value, direction, date), do: QueryBuilder.time_bound(value, direction, date)
 
@@ -53,6 +54,20 @@ defmodule ElixirElastic.TrinoSearch do
       total_pages: max(ceil(total / size), 1),
       logs: logs
     }
+  end
+
+  def get_log_total(date_value) do
+    date =
+      case Date.from_iso8601(to_string(date_value || "")) do
+        {:ok, parsed} -> parsed
+        _ -> today_jst()
+      end
+
+    case TrinoClient.execute(build_summary_query(date), receive_timeout: 60_000) do
+      {:ok, [[total | _] | _], _columns} -> %{date: Date.to_iso8601(date), total: to_integer(total)}
+      {:ok, _, _} -> %{date: Date.to_iso8601(date), total: 0}
+      {:error, reason} -> raise "Trino summary failed: #{reason}"
+    end
   end
 
   def format_timestamp(nil), do: ""

@@ -18,7 +18,7 @@ defmodule ElixirElastic.Router do
   get "/" do
     json(conn, %{
       service: "elixir-trino-backend",
-      endpoints: ["/health", "/api/options", "/api/logs"]
+      endpoints: ["/health", "/api/options", "/api/logs", "/api/summary"]
     })
   end
 
@@ -45,6 +45,18 @@ defmodule ElixirElastic.Router do
     api_search_logs(conn, filters)
   end
 
+  get "/api/summary" do
+    conn = fetch_query_params(conn)
+
+    try do
+      json(conn, TrinoSearch.get_log_total(conn.query_params["date"]))
+    rescue
+      exception ->
+        Logger.warning("Trino log summary failed: #{Exception.message(exception)}")
+        json(conn, 502, %{error: "Trinoに接続できませんでした。稼働状況を確認して、もう一度お試しください。", code: "trino_unavailable"})
+    end
+  end
+
   post "/api/logs" do
     filters = normalize_filters(conn.body_params)
     api_search_logs(conn, filters)
@@ -64,7 +76,8 @@ defmodule ElixirElastic.Router do
       "program" => clean(params["program"]),
       "message" => clean(params["message"]),
       "page" => positive_int(params["page"], 1),
-      "size" => min(positive_int(params["size"], 25), 100)
+      "size" => min(positive_int(params["size"], 25), 100),
+      "skip_total" => String.downcase(to_string(params["skip_total"] || "")) in ["1", "true"]
     }
   end
 

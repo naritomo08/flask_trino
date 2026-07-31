@@ -14,6 +14,8 @@ class LogSearchApp < Sinatra::Base
   TRINO_SCHEMA = ENV.fetch("TRINO_SCHEMA", "logs")
   TRINO_SYSLOG_TABLE = ENV.fetch("TRINO_SYSLOG_TABLE", "syslog_events")
   TRINO_AUTHLOG_TABLE = ENV.fetch("TRINO_AUTHLOG_TABLE", "authlog_events")
+  TRINO_SYSLOG_HOST_1M_TABLE = ENV.fetch("TRINO_SYSLOG_HOST_1M_TABLE", "syslog_host_1m")
+  TRINO_AUTHLOG_HOST_1M_TABLE = ENV.fetch("TRINO_AUTHLOG_HOST_1M_TABLE", "authlog_host_1m")
   TRINO_TIMESTAMP_COLUMN = ENV.fetch("TRINO_TIMESTAMP_COLUMN", "ts")
   TRINO_TIMESTAMP_EXPRESSION = ENV.fetch("TRINO_TIMESTAMP_EXPRESSION", "")
   LOG_TYPES = %w[syslog authlog].freeze
@@ -25,7 +27,7 @@ class LogSearchApp < Sinatra::Base
   get "/" do
     json_response(
       service: "ruby-trino-backend",
-      endpoints: ["/health", "/api/options", "/api/logs"]
+      endpoints: ["/health", "/api/options", "/api/logs", "/api/summary"]
     )
   end
 
@@ -40,6 +42,14 @@ class LogSearchApp < Sinatra::Base
 
   get "/api/options" do
     json_response(log_types: LOG_TYPES)
+  end
+
+  get "/api/summary" do
+    json_response(get_log_total(client, params.fetch("date", "")))
+  rescue StandardError => e
+    warn "Trino log summary failed: #{e.full_message}"
+    status 502
+    json_response(TRINO_UNAVAILABLE)
   end
 
   get "/api/logs" do
