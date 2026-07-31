@@ -170,12 +170,25 @@ function build_query(array $filters, array $config): string
 {
     $size = $filters['size'];
     $offset = ($filters['page'] - 1) * $size;
-    return "SELECT logs.*, count(*) OVER() AS total_count FROM (\n" . union_query($filters, $config) . "\n) logs\nORDER BY event_time DESC\nOFFSET {$offset}\nLIMIT {$size}";
+    $selectList = ($filters['skip_total'] ?? false) ? 'logs.*' : 'logs.*, count(*) OVER() AS total_count';
+    return "SELECT {$selectList} FROM (\n" . union_query($filters, $config) . "\n) logs\nORDER BY event_time DESC\nOFFSET {$offset}\nLIMIT {$size}";
 }
 
 function build_count_query(array $filters, array $config): string
 {
     return "SELECT count(*) AS total FROM (\n" . union_query($filters, $config) . "\n) logs";
+}
+
+function build_summary_query(DateTimeImmutable $date, array $config): string
+{
+    $day = sql_string($date->format('Y-m-d'));
+    $syslog = table_expr($config['trino_syslog_host_1m_table'], $config);
+    $authlog = table_expr($config['trino_authlog_host_1m_table'], $config);
+    return "SELECT COALESCE(sum(total), 0) AS total FROM (\n"
+        . "SELECT COALESCE(sum(cnt), 0) AS total FROM {$syslog} WHERE dt = DATE {$day}\n"
+        . "UNION ALL\n"
+        . "SELECT COALESCE(sum(cnt), 0) AS total FROM {$authlog} WHERE dt = DATE {$day}\n"
+        . ') summaries';
 }
 
 function union_query(array $filters, array $config): string
@@ -307,5 +320,15 @@ function search_logs_page(array $filters, array $config): array
         'size' => $filters['size'],
         'total_pages' => max(1, (int) ceil($total / $filters['size'])),
         'logs' => $logs,
+    ];
+}
+
+function get_log_total(string $dateValue, array $config): array
+{
+    $date = target_date(['date' => $dateValue]);
+    [$rows] = trino_execute(build_summary_query($date, $config), $config, 60);
+    return [
+        'date' => $date->format('Y-m-d'),
+        'total' => (int) ($rows[0][0] ?? 0),
     ];
 }

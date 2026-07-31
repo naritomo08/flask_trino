@@ -8,6 +8,8 @@ config :elixir_elastic,
   trino_schema: System.get_env("TRINO_SCHEMA", "logs"),
   syslog_table: System.get_env("TRINO_SYSLOG_TABLE", "syslog_events"),
   authlog_table: System.get_env("TRINO_AUTHLOG_TABLE", "authlog_events"),
+  syslog_host_1m_table: System.get_env("TRINO_SYSLOG_HOST_1M_TABLE", "syslog_host_1m"),
+  authlog_host_1m_table: System.get_env("TRINO_AUTHLOG_HOST_1M_TABLE", "authlog_host_1m"),
   timestamp_column: System.get_env("TRINO_TIMESTAMP_COLUMN", "ts"),
   timestamp_expression: System.get_env("TRINO_TIMESTAMP_EXPRESSION", ""),
   port: String.to_integer(System.get_env("PORT", "5000"))

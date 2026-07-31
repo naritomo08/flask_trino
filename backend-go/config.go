@@ -13,6 +13,8 @@ var (
 	trinoSchema              = getenv("TRINO_SCHEMA", "logs")
 	trinoSyslogTable         = getenv("TRINO_SYSLOG_TABLE", "syslog_events")
 	trinoAuthlogTable        = getenv("TRINO_AUTHLOG_TABLE", "authlog_events")
+	trinoSyslogHost1mTable   = getenv("TRINO_SYSLOG_HOST_1M_TABLE", "syslog_host_1m")
+	trinoAuthlogHost1mTable  = getenv("TRINO_AUTHLOG_HOST_1M_TABLE", "authlog_host_1m")
 	trinoTimestampColumn     = getenv("TRINO_TIMESTAMP_COLUMN", "ts")
 	trinoTimestampExpression = getenv("TRINO_TIMESTAMP_EXPRESSION", "")
 	jst                      = time.FixedZone("JST", 9*60*60)

@@ -31,6 +31,17 @@ export async function requestLogs(params) {
   }
 }
 
+export async function requestLogSummary(date) {
+  const query = new URLSearchParams({ date });
+  const response = await fetch(`${apiPath("summary")}?${query}`, {
+    cache: "no-store",
+    headers: { Accept: "application/json" }
+  });
+  const payload = await readJson(response);
+  if (!response.ok) throw new Error(logSearchErrorMessage(response, payload));
+  return payload;
+}
+
 export async function requestHealth(key) {
   const started = performance.now();
   try {

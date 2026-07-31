@@ -7,11 +7,22 @@ defmodule ElixirElastic.QueryBuilder do
   def build_query(filters) do
     size = filters["size"]
     offset = (filters["page"] - 1) * size
-    "SELECT logs.*, count(*) OVER() AS total_count FROM (\n#{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET #{offset}\nLIMIT #{size}"
+    select_list = if filters["skip_total"], do: "logs.*", else: "logs.*, count(*) OVER() AS total_count"
+    "SELECT #{select_list} FROM (\n#{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET #{offset}\nLIMIT #{size}"
   end
 
   def build_count_query(filters) do
     "SELECT count(*) AS total FROM (\n#{union_query(filters)}\n) logs"
+  end
+
+  def build_summary_query(date) do
+    day = sql_string(Date.to_iso8601(date))
+
+    "SELECT COALESCE(sum(total), 0) AS total FROM (\n" <>
+      "SELECT COALESCE(sum(cnt), 0) AS total FROM #{table_expr(syslog_host_1m_table())} WHERE dt = DATE #{day}\n" <>
+      "UNION ALL\n" <>
+      "SELECT COALESCE(sum(cnt), 0) AS total FROM #{table_expr(authlog_host_1m_table())} WHERE dt = DATE #{day}\n" <>
+      ") summaries"
   end
 
   def today_jst do
@@ -167,6 +178,8 @@ defmodule ElixirElastic.QueryBuilder do
   defp trino_schema, do: Application.fetch_env!(:elixir_elastic, :trino_schema)
   defp syslog_table, do: Application.fetch_env!(:elixir_elastic, :syslog_table)
   defp authlog_table, do: Application.fetch_env!(:elixir_elastic, :authlog_table)
+  defp syslog_host_1m_table, do: Application.fetch_env!(:elixir_elastic, :syslog_host_1m_table)
+  defp authlog_host_1m_table, do: Application.fetch_env!(:elixir_elastic, :authlog_host_1m_table)
   defp timestamp_column, do: Application.fetch_env!(:elixir_elastic, :timestamp_column)
   defp timestamp_expression, do: Application.fetch_env!(:elixir_elastic, :timestamp_expression)
 end

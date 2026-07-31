@@ -14,7 +14,8 @@ module LogSearch
       "program" => source.fetch("program", "").to_s.strip,
       "message" => source.fetch("message", "").to_s.strip,
       "page" => positive_int(source.fetch("page", 1), 1),
-      "size" => [positive_int(source.fetch("size", 25), 25), 100].min
+      "size" => [positive_int(source.fetch("size", 25), 25), 100].min,
+      "skip_total" => %w[1 true].include?(source.fetch("skip_total", "").to_s.downcase)
     }
   end
 
@@ -59,11 +60,23 @@ module LogSearch
   def build_query(filters)
     size = filters["size"]
     offset = (filters["page"] - 1) * size
-    "SELECT logs.*, count(*) OVER() AS total_count FROM (\n#{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET #{offset}\nLIMIT #{size}"
+    select_list = filters["skip_total"] ? "logs.*" : "logs.*, count(*) OVER() AS total_count"
+    "SELECT #{select_list} FROM (\n#{union_query(filters)}\n) logs\nORDER BY event_time DESC\nOFFSET #{offset}\nLIMIT #{size}"
   end
 
   def build_count_query(filters)
     "SELECT count(*) AS total FROM (\n#{union_query(filters)}\n) logs"
+  end
+
+  def build_summary_query(date)
+    day = sql_string(date.iso8601)
+    <<~SQL.chomp
+      SELECT COALESCE(sum(total), 0) AS total FROM (
+      SELECT COALESCE(sum(cnt), 0) AS total FROM #{table_expr(self.class::TRINO_SYSLOG_HOST_1M_TABLE)} WHERE dt = DATE #{day}
+      UNION ALL
+      SELECT COALESCE(sum(cnt), 0) AS total FROM #{table_expr(self.class::TRINO_AUTHLOG_HOST_1M_TABLE)} WHERE dt = DATE #{day}
+      ) summaries
+    SQL
   end
 
   def union_query(filters)
@@ -168,6 +181,12 @@ module LogSearch
       total_pages: [(total.to_f / filters["size"]).ceil, 1].max,
       logs: logs
     }
+  end
+
+  def get_log_total(trino_client, date_value)
+    date = target_date("date" => date_value)
+    rows, = trino_client.execute(build_summary_query(date), timeout: 60)
+    { date: date.iso8601, total: rows.dig(0, 0).to_i }
   end
 
   def positive_int(value, fallback)

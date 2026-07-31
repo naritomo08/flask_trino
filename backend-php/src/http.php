@@ -23,6 +23,7 @@ function normalize_filters(array $args): array
         'message' => trim((string) ($args['message'] ?? '')),
         'page' => positive_int($args['page'] ?? 1, 1),
         'size' => min(positive_int($args['size'] ?? 25, 25), 100),
+        'skip_total' => in_array(strtolower((string) ($args['skip_total'] ?? '')), ['1', 'true'], true),
     ];
 }
 
@@ -70,7 +71,7 @@ function create_app(): \Slim\App
     $app->get('/', function (Request $request, Response $response) use ($config): Response {
         return json_response($response, [
             'service' => 'php-trino-backend',
-            'endpoints' => ['/health', '/api/options', '/api/logs'],
+            'endpoints' => ['/health', '/api/options', '/api/logs', '/api/summary'],
         ]);
     });
 
@@ -94,6 +95,16 @@ function create_app(): \Slim\App
             return json_response($response, ['filters' => $filters, ...$result]);
         } catch (Throwable $error) {
             error_log('Trino log search failed: ' . $error);
+            return json_response($response, TRINO_UNAVAILABLE, 502);
+        }
+    });
+
+    $app->get('/api/summary', function (Request $request, Response $response) use ($config): Response {
+        try {
+            $date = trim((string) ($request->getQueryParams()['date'] ?? ''));
+            return json_response($response, get_log_total($date, $config));
+        } catch (Throwable $error) {
+            error_log('Trino log summary failed: ' . $error);
             return json_response($response, TRINO_UNAVAILABLE, 502);
         }
     });
